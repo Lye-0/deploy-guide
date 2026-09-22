@@ -1,3 +1,4 @@
+import { runtimeSource, startEntries } from './runtime-scope.ts';
 import type { Analysis, Entry } from './types.ts';
 import { detectOutput } from './output-directory.ts';
 export const MAX_FILES = 50_000;
@@ -21,8 +22,10 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   const add = (label: string, path: string) => a.evidence.push({ label, path: root + path });
   const pkg = entries.find(e => e.path === 'package.json');
   let deps: Record<string, unknown> = {};
+  let runtimeDeps: Record<string, unknown> = {};
+  let productionEntries = new Set<string>();
   if (pkg?.text) {
-    try { const json = JSON.parse(pkg.text); deps = { ...json.dependencies, ...json.devDependencies }; add('依存関係を確認', pkg.path); }
+    try { const json = JSON.parse(pkg.text); deps = { ...json.dependencies, ...json.devDependencies }; runtimeDeps = json.dependencies ?? {}; productionEntries = startEntries(json.scripts); add('依存関係を確認', pkg.path); }
     catch { a.warnings.push('package.jsonを読み取れません。構成の確認が必要です。'); a.incomplete = true; }
   }
   a.next = Boolean(deps.next);
@@ -32,11 +35,15 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   a.worker = entries.some(e => /^wrangler\.(toml|jsonc?)$/.test(e.path)) || Boolean(deps['@cloudflare/workers-types'] || deps.hono);
   const cf = entries.find(e => /^wrangler\.(toml|jsonc?)$/.test(e.path));
   if (cf) add('Cloudflareの設定あり', cf.path);
-  const serverFiles = entries.filter(e => !/(^|\/)(dist|build|out|\.next|public)\//.test(e.path) && /(^|\/)(pages\/api\/|api\/.*\.[cm]?[jt]s$|server\.[cm]?[jt]s$|functions\/|.*\+server\.[jt]s$)/.test(e.path));
-  const serverCode = entries.filter(e => e.text && !/(^|\/)(dist|build|out|\.next|public)\//.test(e.path) && /\.(?:[cm]?[jt]sx?)$/.test(e.path) && /\bexport\s+(?:async\s+)?(?:function|const)\s+getServerSideProps\b|^\s*['"]use server['"]\s*;?|\b(?:Bun|Deno)\.serve\s*\(|\b(?:app|server)\.listen\s*\(/m.test(e.text));
-  const routeFiles = entries.filter(e => /(^|\/)app\/(?:.*\/)?route\.[jt]s$/.test(e.path));
+  const candidateServerFiles = entries.filter(e => !/(^|\/)(dist|build|out|\.next|public)\//.test(e.path) && /(^|\/)(pages\/api\/|api\/.*\.[cm]?[jt]s$|server\.[cm]?[jt]s$|functions\/|.*\+server\.[jt]s$)/.test(e.path));
+  const candidateServerCode = entries.filter(e => e.text && !/(^|\/)(dist|build|out|\.next|public)\//.test(e.path) && /\.(?:[cm]?[jt]sx?)$/.test(e.path) && /\bexport\s+(?:async\s+)?(?:function|const)\s+getServerSideProps\b|^\s*['"]use server['"]\s*;?|\b(?:Bun|Deno)\.serve\s*\(|\b(?:app|server)\.listen\s*\(/m.test(e.text));
+  const serverFiles = candidateServerFiles.filter(e => runtimeSource(e.path, productionEntries));
+  const serverCode = candidateServerCode.filter(e => runtimeSource(e.path, productionEntries));
+  const tooling = [...new Map([...candidateServerFiles, ...candidateServerCode].filter(e => !runtimeSource(e.path, productionEntries)).map(e => [e.path, e])).values()];
+  for (const e of tooling.slice(0, 5)) add('テスト・開発用のためサーバー判定から除外', e.path);
+  const routeFiles = entries.filter(e => runtimeSource(e.path, productionEntries) && /(^|\/)app\/(?:.*\/)?route\.[jt]s$/.test(e.path));
   const workerMain = cf?.text && /(?:["']?main["']?\s*[:=])/.test(cf.text);
-  const serverDeps = Boolean(deps.express || deps.fastify || deps['@nestjs/core'] || deps.hono);
+  const serverDeps = Boolean(runtimeDeps.express || runtimeDeps.fastify || runtimeDeps['@nestjs/core'] || runtimeDeps.hono);
   const server = serverFiles.length > 0 || serverCode.length > 0 || Boolean(workerMain) || serverDeps;
   for (const e of [...serverFiles, ...serverCode].slice(0, 5)) add('サーバー処理の手掛かり', e.path);
   if (routeFiles.length) add('Route Handlerあり（静的出力の可否は要確認）', routeFiles[0].path);
