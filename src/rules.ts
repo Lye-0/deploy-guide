@@ -35,6 +35,15 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
     gh.score -= 30; gh.cautions.unshift('静的配信で完結することを確認できていません。');
     cf.cautions.push('実行方式が未確定のため、Workersへの適合性は未確認です。');
   }
+  if (runtime === 'static' && a.staticHost === 'cloudflare') {
+    cf.score += 20;
+    cf.reasons.push('既存のCloudflare静的配信設定と公開コマンドを利用でき、変更を抑えられます。');
+  }
+  if (runtime === 'static' && a.historyRouting) {
+    gh.conditional = true;
+    gh.cautions.unshift('BrowserRouter等の履歴ベースのルーティングがあります。途中のURLへの直接アクセスと公開パスへの対応が必要です。');
+    for (const c of [cf, vc]) c.cautions.push('SPAの途中のURLを直接開けるよう、index.htmlへのフォールバック設定を確認してください。');
+  }
   if (a.next && runtime !== 'static') { vc.score += 45; vc.reasons.unshift('Next.jsのデプロイ統合を利用でき、構成変更を抑えやすいためです。'); cf.cautions.push('Next.jsはvinext（ベータ）やOpenNext等の対応経路・互換性確認が必要です。'); }
   if (a.worker) { cf.score += 40; cf.reasons.unshift('Cloudflare向けの設定または依存関係が見つかりました。'); }
   if (p.purpose === 'commercial') {

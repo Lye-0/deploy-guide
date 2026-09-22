@@ -1,3 +1,4 @@
+import { jsonc, repositoryPath } from "./workspace-layout.ts";
 import { analyzeWorkspace } from './workspace-layout.ts';
 import type { Analysis, Entry } from './types.ts';
 import { detectOutput } from './output-directory.ts';
@@ -99,6 +100,33 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
     if (viteSSR) a.warnings.push('ViteのSSR設定は実行環境・アダプターの確認が必要です。');
     if (foreignRuntime) a.warnings.push('JavaScript以外の実行環境が含まれます。公開時に必要な処理か確認してください。');
     if (unsupportedFramework) a.warnings.push(`${unsupportedFramework}のアダプター・実行モードは未対応です。`);
+  }
+  // Existing static hosting and browser-history routing affect deployment effort,
+  // without implying a server runtime.
+  if (a.runtime === 'static') {
+    if (wrangler?.text && /\.jsonc?$/.test(wrangler.path)) try {
+      const config = jsonc(wrangler.text);
+      const assetRoot = repositoryPath('', config.assets?.directory);
+      const deploy = scripts.deploy;
+      if (!config.main && assetRoot && output === assetRoot + '/' &&
+          typeof deploy === 'string' && /(?:^|&&|;)\s*(?:(?:pnpm exec|npx)\s+)?wrangler deploy\s*$/.test(deploy)) {
+        a.staticHost = 'cloudflare';
+        add('Cloudflareの静的アセット設定とdeployコマンドを確認', wrangler.path);
+      }
+    } catch { /* Invalid or unsupported configuration is not a hosting preference. */ }
+    for (const path of graph.files) {
+      const text = map.get(path)?.text, ast = text ? parseCode(text) : null;
+      if (!ast) continue;
+      const routers = new Set<string>(), factories = new Set<string>();
+      for (const n of ast.body) if (n.type === 'ImportDeclaration' && stringValue(n.source) === 'react-router-dom')
+        for (const spec of n.specifiers) {
+          if (spec.imported?.name === 'BrowserRouter') routers.add(spec.local.name);
+          if (spec.imported?.name === 'createBrowserRouter') factories.add(spec.local.name);
+        }
+      walk(ast, n => {
+        if (n.type === 'JSXOpeningElement' && routers.has(n.name?.name) || n.type === 'CallExpression' && factories.has(n.callee?.name)) a.historyRouting = true;
+      });
+    }
   }
   a.warnings.push(...graph.issues, ...graph.notes);
   a.recognized = map.has('index.html') || vite || a.next || a.worker || launch.paths.length > 0;

@@ -8,7 +8,7 @@ type Package = {
   scripts: Record<string, string>;
   data: Record<string, any>;
 };
-function jsonc(text: string): Record<string, any> {
+export function jsonc(text: string): Record<string, any> {
   const clean = text.replace(
     /"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g,
     (token) => (token.startsWith("/") ? " " : token),

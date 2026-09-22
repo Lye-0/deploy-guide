@@ -8,6 +8,8 @@ export type Analysis = {
   assets: { path: string; count: number; bytes: number; largest: number } | null;
   evidence: Evidence[]; warnings: string[]; incomplete: boolean; scanned: number; textRead: number;
   capacityIncomplete?: boolean;
+  staticHost?: 'cloudflare';
+  historyRouting?: boolean;
 };
 export type Preferences = { purpose: 'personal' | 'commercial' | 'unknown'; budget: 'free' | 'paid'; priority: 'simple' | 'growth' | 'preview'; traffic: 'unknown' | 'small' | 'large'; runtime: 'auto' | 'static' | 'server' };
 export type Candidate = { id: 'github' | 'vercel' | 'cloudflare'; name: string; plan: string; score: number; blocked: boolean; conditional?: boolean; reasons: string[]; cautions: string[]; condition: string };

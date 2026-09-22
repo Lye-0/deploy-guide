@@ -26,7 +26,7 @@ scope.onmessage = async ({ data }) => {
     else for (const file of data.files ?? []) { const path = file.webkitRelativePath.split('/').slice(1).join('/') || file.name; accept(file, path); if (visited > MAX_FILES) break; }
     for (const entry of [...entries].sort((a, b) => readPriority(a.path) - readPriority(b.path) || a.path.localeCompare(b.path))) {
       const file = sources.get(entry.path); if (!file) continue;
-      if (file.size > MAX_TEXT || totalText + file.size > MAX_TOTAL_TEXT) { warnings.add('テキスト読み取り上限に達したファイルがあります。未読の実行ファイルは判定を保留します。'); continue; }
+      if (file.size > MAX_TEXT || totalText + file.size > MAX_TOTAL_TEXT) { warnings.add('テキスト読み取り上限に達したファイルがあります。実行方式の確認に必要な参照先が未読の場合は判定を保留します。容量はファイル情報から集計します。'); continue; }
       totalText += file.size; try { entry.text = await file.text(); } catch { warnings.add('一部のファイルを読み取れませんでした。'); }
     }
     scope.postMessage({ type: 'complete', entries, name, warnings: [...warnings] });

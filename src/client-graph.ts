@@ -1,3 +1,4 @@
+import { BUILD_ASSET, declaredPackage, traceBuildAssetFetches } from "./build-assets.ts";
 import { traceFetchUrls } from "./url-provenance.ts";
 import type { Entry, Evidence } from "./types.ts";
 import {
@@ -143,7 +144,12 @@ export function inspectClient(
         .matchAll(
           /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)|@import\s+['"]([^'"]+)['"]/g,
         ))
-        visit((m[1] ?? m[2] ?? m[3] ?? m[4]).trim(), path);
+        {
+          const spec = (m[1] ?? m[2] ?? m[3] ?? m[4]).trim();
+          if (bundled && m[4] && !/^[./]/.test(spec) && declaredPackage(spec, entries)) {
+            r.evidence.push({ label: "ビルド時に解決するCSSパッケージ参照", path });
+          } else visit(spec, path);
+        }
       return;
     }
     const html = entry.text.replace(/<!--[\s\S]*?-->/g, "");
@@ -177,7 +183,8 @@ export function inspectClient(
   if (!map.has(htmlPath))
     issue(`HTMLエントリーポイント「${htmlPath}」がありません。`);
   else inspect(htmlPath);
-  const proofs = pending.some(({ node }) => !stringValue(node.arguments[0]))
+  const buildProofs = traceBuildAssetFetches(entries, r.files, bundled);
+  const proofs = pending.some(({ path, node }) => !stringValue(node.arguments[0]) && !buildProofs.has(path + ":" + node.start))
     ? traceFetchUrls(entries, r.files, bundled)
     : new Map();
   function readOnly(node: Ast): boolean {
@@ -229,20 +236,23 @@ export function inspectClient(
     const proof = direct
       ? { urls: [direct], complete: true, origins: [] }
       : proofs.get(path + ":" + node.start);
-    const matched = proof?.urls.map(asset) ?? [];
+    const buildProof = buildProofs.get(path + ":" + node.start);
+    const matched = buildProof ? [buildProof] : proof?.urls.map(asset) ?? [];
     if (
       readOnly(node) &&
-      proof?.complete &&
+      (buildProof || proof?.complete) &&
       matched.length &&
       matched.every(Boolean)
     ) {
       const count = new Set(matched).size;
       r.evidence.push({
         label:
-          "GET/HEADのURL参照元を追跡し、" + count + "件の公開アセットと照合",
+          matched.some((p: string | null) => p?.startsWith(BUILD_ASSET))
+            ? "ViteのURL importから静的アセットのGET/HEADを確認（依存パッケージはビルド時に解決）"
+            : "GET/HEADのURL参照元を追跡し、" + count + "件の公開アセットと照合",
         path,
       });
-      for (const origin of proof.origins)
+      for (const origin of proof?.origins ?? [])
         r.evidence.push({ label: "通信URLの参照元データ", path: origin });
       continue;
     }

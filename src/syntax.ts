@@ -2,9 +2,17 @@ import { Parser } from "acorn";
 import tsPlugin from "acorn-typescript";
 // Parser nodes differ slightly for JS, JSX and TypeScript; keep that boundary here.
 export type Ast = any;
-const TSParser = Parser.extend(
+const TSBase = Parser.extend(
   tsPlugin() as unknown as Parameters<typeof Parser.extend>[0],
 );
+// Acorn's TS extension delegates assignment checks without unwrapping non-null assertions.
+// Validate the underlying expression so calls/literals are still rejected as assignment targets.
+class TSParser extends TSBase {
+  checkLValSimple(node: Ast, ...args: any[]) {
+    while (node.type === "TSNonNullExpression") node = node.expression;
+    return (TSBase.prototype as any).checkLValSimple.call(this, node, ...args);
+  }
+}
 /** Preserve offsets while removing a type-only clause unsupported by the TS parser. */
 function withoutObjectSatisfies(code: string): string {
   try {
@@ -29,7 +37,7 @@ function withoutObjectSatisfies(code: string): string {
         const raw = code.slice(tokens[j].start, tokens[j].end);
         if (raw === "<") depth++;
         else if (/^>+$/.test(raw)) depth -= raw.length;
-        else if (tokens[j].type.label === ";" && depth === 0) break;
+        else if ([";", "}", ")", ","].includes(tokens[j].type.label) && depth === 0) break;
         else if (
           tokens[j].type.label !== "name" &&
           ![".", ",", "[", "]"].includes(raw)
@@ -40,7 +48,7 @@ function withoutObjectSatisfies(code: string): string {
       if (
         depth === 0 &&
         j > i + 1 &&
-        (j === tokens.length || tokens[j].type.label === ";")
+        (j === tokens.length || [";", "}", ")", ","].includes(tokens[j].type.label))
       )
         ranges.push([
           tokens[i].start,
