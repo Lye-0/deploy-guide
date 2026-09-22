@@ -28,6 +28,7 @@ export function stringValue(node: Ast): string | null {
 export function member(node: Ast): string {
   if (!node) return '';
   if (node.type === 'Identifier') return node.name;
+  if (node.type === 'MetaProperty') return node.meta.name + '.' + node.property.name;
   if (node.type === 'MemberExpression' || node.type === 'OptionalMemberExpression') return member(node.object) + '.' + (node.computed ? stringValue(node.property) ?? '?' : node.property.name);
   return '';
 }

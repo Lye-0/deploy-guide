@@ -42,7 +42,7 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   a.warnings.push(...selection.warnings);
   const output = selection.path;
   const htmlPath = vite && map.has('index.html') ? 'index.html' : output !== null && map.has(output + 'index.html') ? output + 'index.html' : 'index.html';
-  const graph = inspectClient(entries, htmlPath, vite && htmlPath === 'index.html');
+  const graph = inspectClient(entries, htmlPath, vite && htmlPath === 'index.html', output);
   let viteSSR = false;
   const viteConfig = entries.find(e => /^vite\.config\./.test(e.path));
   if (viteConfig?.text) { const ast = parseCode(viteConfig.text); if (ast) walk(ast, n => { if (n.type === 'Property' && (n.key.name ?? n.key.value) === 'ssr' && !(n.value.type === 'Literal' && n.value.value === false)) viteSSR = true; }); else viteSSR = true; }
