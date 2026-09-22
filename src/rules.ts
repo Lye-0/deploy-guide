@@ -37,7 +37,7 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
   }
   if (runtime === 'static' && a.staticHost === 'cloudflare') {
     cf.score += 20;
-    cf.reasons.push('既存のCloudflare静的配信設定と公開コマンドを利用でき、変更を抑えられます。');
+    cf.reasons.push('既存のCloudflare静的配信設定が集計対象と一致しており、構成の変更を抑えられます。');
   }
   if (runtime === 'static' && a.historyRouting) {
     gh.conditional = true;
@@ -64,5 +64,13 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
   }
   if (a.externalApi) for (const c of [gh, vc, cf]) c.cautions.push('HTTP通信を検出しました。ブラウザから呼ぶ場合はCORSと公開可能な認証方式を確認してください。');
   if (p.runtime === 'static' && a.runtime === 'server') for (const c of [gh, vc, cf]) c.cautions.unshift('回答に従い静的配信として評価しています。検出したサーバー処理が別の公開先にあるか確認してください。');
+  if (p.access === 'restricted') {
+    for (const c of [gh, vc, cf]) {
+      c.conditional = true;
+      c.cautions.unshift('閲覧制限が必要です。HTML・画像・既定URLを含むアクセス制御が公開先で有効か、このフォルダからは検証できません。');
+    }
+  } else if (p.access === 'unknown') {
+    for (const c of [gh, vc, cf]) c.cautions.unshift('閲覧範囲が未定です。この提案は配信構成の比較です。閲覧制限が必要なら条件を変更してください。');
+  }
   return [gh, vc, cf].sort((a, b) => Number(a.blocked) - Number(b.blocked) || Number(!!a.conditional) - Number(!!b.conditional) || b.score - a.score);
 }

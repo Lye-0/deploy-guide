@@ -44,6 +44,8 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   const outputEntries = all.filter(e => safePath(e.path) && e.path.startsWith(root)).map(e => ({ ...e, path: e.path.slice(root.length) }));
   const selection = detectOutput(entries, outputChoice, outputEntries);
   a.warnings.push(...selection.warnings);
+  a.outputReason = selection.reason;
+  a.buildProfiles = selection.profiles;
   const output = selection.path;
   const htmlPath = vite && map.has('index.html') ? 'index.html' : output !== null && map.has(output + 'index.html') ? output + 'index.html' : 'index.html';
   const graph = inspectClient(entries, htmlPath, vite && htmlPath === 'index.html', output);
@@ -109,9 +111,9 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
       const assetRoot = repositoryPath('', config.assets?.directory);
       const deploy = scripts.deploy;
       if (!config.main && assetRoot && output === assetRoot + '/' &&
-          typeof deploy === 'string' && /(?:^|&&|;)\s*(?:(?:pnpm exec|npx)\s+)?wrangler deploy\s*$/.test(deploy)) {
+          (deploy === undefined || typeof deploy === 'string' && /(?:^|&&|;)\s*(?:(?:pnpm exec|npx)\s+)?wrangler deploy\s*$/.test(deploy))) {
         a.staticHost = 'cloudflare';
-        add('Cloudflareの静的アセット設定とdeployコマンドを確認', wrangler.path);
+        add(deploy ? 'Cloudflareの静的アセット設定とdeployコマンドを確認' : 'Cloudflareの静的アセット設定と集計対象の一致を確認', wrangler.path);
       }
     } catch { /* Invalid or unsupported configuration is not a hosting preference. */ }
     for (const path of graph.files) {

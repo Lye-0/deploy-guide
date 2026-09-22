@@ -42,4 +42,12 @@ pnpm-workspace.yamlまたはpackage.jsonのworkspaces宣言がある場合、ル
 
 Viteの明示的な`?url`アセットimportは、変更・同名の再宣言がないモジュールのimport/const/exportを最大64段で追跡します。ローカルファイルは存在確認し、パッケージ参照はpackage.jsonの依存宣言を確認します。依存パッケージ内部とビルド後のURLは未検証であり、ビルド時に解決する根拠として表示します。CSSの宣言済みパッケージimportもビルド依存として扱います。GET/HEAD以外や未知のURLはこの経路で適合判定しません。未読の未参照成果物はソースからの実行方式判定を妨げません。
 
-Wrangler JSON/JSONCの静的assets設定が検出出力と一致し、default環境の明示的なdeployコマンドがある場合は、既存構成を保てるCloudflareを加点します。サーバー処理ありとは分類しません。到達したコードでReact RouterのBrowserRouter/createBrowserRouterを使用していれば、GitHub Pagesは途中URLへの直接アクセス・公開パスの対応確認を必要とする候補にします。
+Wrangler JSON/JSONCの静的assets設定が検出出力と一致し、deployコマンドがない、またはdefault環境の明示的なdeployコマンドと整合する場合は、既存構成を保てるCloudflareを加点します。サーバー処理ありとは分類しません。到達したコードでReact RouterのBrowserRouter/createBrowserRouterを使用していれば、GitHub Pagesは途中URLへの直接アクセス・公開パスの対応確認を必要とする候補にします。
+
+## ビルドの選択と閲覧条件
+
+出力先は設定ファイル内の語句検索から、Viteのexport defaultを起点にした限定的なAST解析へ変更しました。package.jsonのVite buildコマンド、npm/pnpm/yarnのスクリプト参照、--mode/-m/--outDirの文字列指定を追い、mode/command・定数・条件式から各ビルドの出力候補を作ります。プロジェクトの設定やプラグインは実行しません。[Viteの条件付き設定](https://vite.dev/config/#conditional-config)と[CLI](https://vite.dev/guide/cli)を参照しています。
+
+配信設定と候補が一致する場合はそのフォルダを集計し、別モードの出力も残します。設定競合、候補が複数で配信先が未指定、未生成、環境変数、関数呼び出し、未対応のラッパーやCLIオプション、root変更は未確認とします。ファイルがあるだけではビルドの成功や鮮度、公開範囲は証明できません。プラグインによる設定の書換えは実行検証しません。
+
+「閲覧できる人」は利用者が指定します。package.jsonのprivate、リポジトリの公開範囲、public/privateというフォルダ名・モード名からは推測しません。未定なら暫定比較と注意点を表示し、閲覧制限ありなら全サービスをアクセス制御の確認が必要な候補として扱います。READMEの自然文からアクセス制御が有効と断定しません。

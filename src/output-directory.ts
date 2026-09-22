@@ -1,20 +1,9 @@
+import { buildProfiles, type BuildProfile } from './build-profiles.ts';
 import type { Entry } from './types.ts';
-export type OutputSelection = { path: string | null; reason: string; warnings: string[] };
+export type OutputSelection = { path: string | null; reason: string; warnings: string[]; profiles?: BuildProfile[] };
 
-export function normalizeOutputPath(value: string): string | null {
-  const path = value.trim().replace(/\\/g, '/');
-  if (!path || path.startsWith('/') || /[:\x00-\x1f]/.test(path) || path.split('/').includes('..')) return null;
-  const parts = path.split('/').filter(p => p && p !== '.');
-  return parts.length ? parts.join('/') + '/' : '';
-}
-export function outputFolders(entries: Entry[]): string[] {
-  const folders = new Set<string>();
-  for (const entry of entries) {
-    const parts = entry.path.split('/');
-    for (let i = 1; i < parts.length; i++) if (!parts.slice(0, i).some(p => p.startsWith('.'))) folders.add(parts.slice(0, i).join('/') + '/');
-  }
-  return [...folders].sort();
-}
+import { normalizeOutputPath } from './output-paths.ts';
+export { normalizeOutputPath, outputFolders } from './output-paths.ts';
 // Strip comments without changing string literals. Never evaluate project configuration.
 function uncomment(text: string): string {
   return text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g, token => token.startsWith('//') || token.startsWith('/*') ? ' ' : token);
@@ -22,37 +11,12 @@ function uncomment(text: string): string {
 function jsonConfig(text: string): Record<string, unknown> {
   return JSON.parse(uncomment(text).replace(/("(?:\\.|[^"\\])*")|,\s*(?=[}\]])/g, (match, str) => str ?? ''));
 }
-// Only direct string literals are supported; expressions, spreads and multiple candidates stay unknown.
-function viteOutput(text: string): { present: boolean; value?: string } {
-  const clean = uncomment(text);
-  if (/\.\.\.|\broot\s*:/.test(clean)) return { present: true };
-  // Tokenize without executing configuration; keep nested object braces balanced.
-  const tokens = clean.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|[^\s]/g) ?? [];
-  const key = (token: string) => token.replace(/^['"]|['"]$/g, '');
-  const builds = tokens.map((t, i) => key(t) === 'build' && tokens[i + 1] === ':' ? i : -1).filter(i => i >= 0);
-  if (builds.length > 1) return { present: true };
-  if (!builds.length) return { present: /\boutDir\b/.test(clean) };
-  const begin = builds[0] + 2;
-  if (tokens[begin] !== '{') return { present: true };
-  let depth = 1;
-  const values: (string | undefined)[] = [];
-  for (let i = begin + 1; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (token === '{') depth++;
-    if (token === '}') {
-      depth--;
-      if (depth === 0) return values.length === 0 ? { present: false } : values.length === 1 ? { present: true, value: values[0] } : { present: true };
-    }
-    if (depth === 1 && key(token) === 'outDir' && tokens[i + 1] === ':') {
-      const literal = tokens[i + 2] ?? '';
-      const value = /^(['"])[^'"\\]*\1$/.test(literal) && [',', '}'].includes(tokens[i + 3]) ? literal.slice(1, -1) : undefined;
-      values.push(value);
-    }
-  }
-  return { present: true };
-
-}
 export function detectOutput(entries: Entry[], manual = 'auto', files = entries): OutputSelection {
+  const profiles = buildProfiles(entries);
+  const result = detect(entries, manual, files, profiles);
+  return { ...result, profiles };
+}
+function detect(entries: Entry[], manual: string, files: Entry[], profiles: BuildProfile[]): OutputSelection {
   const available = (path: string) => files.some(e => e.path.startsWith(path));
   if (manual !== 'auto') {
     const path = normalizeOutputPath(manual);
@@ -83,9 +47,25 @@ export function detectOutput(entries: Entry[], manual = 'auto', files = entries)
           if (match && ((section === 'assets' && match[1] === 'directory') || (!section && match[1] === 'pages_build_output_dir'))) add(match[3], e.path);
         }
       } else {
-        const value = viteOutput(e.text); if (value.present) add(value.value, e.path);
+        // Vite profiles are reconciled with hosting configuration below.
       }
     } catch { unresolved = true; warnings.push(`${e.path}の設定を読み取れません。公開フォルダを手動で指定してください。`); }
+  }
+  const hosting = [...new Set(found.map(f => f.path))];
+  const variants = [...new Set(profiles.flatMap(p => p.output === undefined ? [] : [normalizeOutputPath(p.output)]))];
+  const invalid = profiles.some(p => p.output === undefined || normalizeOutputPath(p.output) === null);
+  const describe = (p: BuildProfile) => p.script + ' (mode=' + p.mode + ') → ' + (p.output ?? '未確認' + (p.issue ? '（' + p.issue + '）' : ''));
+  if (profiles.length > 1) warnings.push('ビルドごとの出力：' + profiles.map(describe).join(' ／ ') + '。配信する内容に合うフォルダを選んでください。');
+  if (hosting.length === 1 && variants.includes(hosting[0]) && !unresolved) {
+    const matched = profiles.filter(p => p.output !== undefined && normalizeOutputPath(p.output) === hosting[0]);
+    const reason = found[0].source + 'と ' + matched.map(describe).join(' ／ ') + ' の一致から検出';
+    if (invalid) warnings.push('他のビルドに未確認の出力があります。選択中の配信設定との一致だけを確認しています。');
+    return available(hosting[0]) ? { path: hosting[0], reason, warnings }
+      : { path: null, reason, warnings: [...warnings, '設定された出力「' + hosting[0] + '」は未生成です。対象のビルド後に再選択してください。'] };
+  }
+  if (profiles.length) {
+    if (invalid) { unresolved = true; warnings.push('ビルド出力を特定できません：' + profiles.filter(p => p.output === undefined || normalizeOutputPath(p.output) === null).map(describe).join(' ／ ')); }
+    for (const p of profiles) if (p.output !== undefined) add(p.output, p.script + ' (mode=' + p.mode + ')');
   }
   const unique = [...new Set(found.map(f => f.path))];
   if (unresolved || unique.length > 1) return { path: null, reason: '', warnings: [...warnings, ...(unique.length > 1 ? ['設定に複数の公開先があります。使用する公開フォルダを指定してください。'] : [])] };
