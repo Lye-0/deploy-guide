@@ -1,3 +1,4 @@
+import { staticRoot } from './static-root.ts';
 import type { Entry } from './types.ts';
 export type OutputSelection = { path: string | null; reason: string; warnings: string[] };
 
@@ -77,6 +78,7 @@ export function detectOutput(entries: Entry[], manual = 'auto', files = entries)
   const conventional = ['dist/', 'out/', 'build/'].filter(available);
   if (conventional.length > 1) return { path: null, reason: '', warnings: ['公開候補フォルダが複数あります。使用する公開フォルダを指定してください。'] };
   if (conventional.length === 1) return { path: conventional[0], reason: '標準的な出力フォルダ名から推定', warnings: ['フォルダ名からの推定です。実際に公開する内容と一致するか確認してください。'] };
-  if (entries.some(e => e.path === 'index.html') && !entries.some(e => e.path === 'package.json')) return { path: '', reason: 'HTMLを含む公開用フォルダとして推定', warnings: [] };
-  return { path: null, reason: '', warnings: [] };
+  const check = staticRoot(entries);
+  if (check.ready) return { path: '', reason: 'ビルド設定・スクリプト・HTML参照から、そのまま公開できるフォルダと推定', warnings: ['フォルダ全体の集計です。公開時に除外するファイルがある場合は容量が変わります。'] };
+  return { path: null, reason: '', warnings: check.note ? [check.note] : [] };
 }
