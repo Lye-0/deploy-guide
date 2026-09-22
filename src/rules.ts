@@ -1,4 +1,5 @@
 import type { Analysis, Candidate, Preferences } from './types.ts';
+import { LIMITS } from './capacity.ts';
 export const SOURCES = [
   { name: 'GitHub Pages：容量・帯域・利用目的の制限', url: 'https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits', note: '公開サイト1 GB、月100 GBのソフト帯域上限。EC・商用SaaS等の用途に制限。' },
   { name: 'Vercel：Hobbyプラン', url: 'https://vercel.com/docs/plans/hobby', note: 'Hobbyは個人・非商用向け。商用は有料プランを検討。' },
@@ -40,10 +41,10 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
   if (p.priority === 'preview') { vc.score += 30; vc.reasons.push('PRごとのプレビューを利用した運用に向いています。'); }
   if (p.traffic === 'large') { gh.blocked = true; gh.cautions.unshift('見込み配信量が月100 GBのソフト上限を超えます。'); cf.score += 25; cf.reasons.push('配信量が多い想定で、静的アセットの無料・無制限配信が合います。'); vc.cautions.push('配信量の条件に応じたプラン・追加費用を確認してください。'); }
   if (a.assets) {
-    if (a.assets.bytes > 1_000_000_000) { gh.blocked = true; gh.cautions.unshift('検出した公開フォルダが1 GBを超えています。'); }
-    if (a.assets.largest > 25 * 1024 * 1024) { cf.blocked = true; cf.cautions.unshift('25 MiB超のファイルがあります。R2等への分離かファイル削減が必要です。'); }
-    if (a.assets.count > (p.budget === 'free' ? 20_000 : 100_000)) { cf.blocked = true; cf.cautions.unshift('アセット数が選択した料金条件の上限を超えています。'); }
-    if (a.assets.count > 20_000 && p.budget === 'paid') cf.plan = 'Workers Paid + Static Assets';
+    if (a.assets.bytes > LIMITS.githubBytes) { gh.blocked = true; gh.cautions.unshift('検出した公開フォルダが1 GBを超えています。'); }
+    if (a.assets.largest > LIMITS.cloudflareFileBytes) { cf.blocked = true; cf.cautions.unshift('25 MiB超のファイルがあります。R2等への分離かファイル削減が必要です。'); }
+    if (a.assets.count > (p.budget === 'free' ? LIMITS.cloudflareFreeFiles : LIMITS.cloudflarePaidFiles)) { cf.blocked = true; cf.cautions.unshift('アセット数が選択した料金条件の上限を超えています。'); }
+    if (a.assets.count > LIMITS.cloudflareFreeFiles && p.budget === 'paid') cf.plan = 'Workers Paid + Static Assets';
   }
   if (a.externalApi) for (const c of [gh, vc, cf]) c.cautions.push('HTTP通信を検出しました。ブラウザから呼ぶ場合はCORSと公開可能な認証方式を確認してください。');
   if (p.runtime === 'static' && a.runtime === 'server') for (const c of [gh, vc, cf]) c.cautions.unshift('回答に従い静的配信として評価しています。検出したサーバー処理が別の公開先にあるか確認してください。');

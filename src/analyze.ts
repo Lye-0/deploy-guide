@@ -16,7 +16,7 @@ export function projectRoots(entries: Entry[]): string[] {
 export function analyze(all: Entry[], root = '', name = 'project', scanWarnings: string[] = []): Analysis {
   const nested = projectRoots(all).filter(p => p && p !== root && p.startsWith(root));
   const entries = all.filter(e => safePath(e.path) && e.path.startsWith(root) && !nested.some(p => e.path.startsWith(p))).map(e => ({ ...e, path: e.path.slice(root.length) }));
-  const a: Analysis = { name, framework: '構成を確認中', next: false, worker: false, runtime: 'unknown', staticExport: false, externalApi: false, recognized: false, assets: null, evidence: [], warnings: [...scanWarnings], incomplete: scanWarnings.length > 0, scanned: entries.length };
+  const a: Analysis = { name, framework: '構成を確認中', next: false, worker: false, runtime: 'unknown', staticExport: false, externalApi: false, recognized: false, assets: null, evidence: [], warnings: [...scanWarnings], incomplete: scanWarnings.length > 0, scanned: entries.length, textRead: entries.filter(e => e.text !== undefined).length };
   const add = (label: string, path: string) => a.evidence.push({ label, path: root + path });
   const pkg = entries.find(e => e.path === 'package.json');
   let deps: Record<string, unknown> = {};
