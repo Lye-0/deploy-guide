@@ -8,7 +8,7 @@ export function enhanceSelects() {
     const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'select-trigger'; trigger.id = select.id + '-trigger';
     trigger.setAttribute('aria-haspopup', 'listbox'); trigger.setAttribute('aria-expanded', 'false');
     const value = document.createElement('span'); value.className = 'select-value';
-    const arrow = document.createElement('span'); arrow.className = 'select-chevron'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '⌄';
+    const arrow = document.createElement('span'); arrow.className = 'select-chevron'; arrow.setAttribute('aria-hidden', 'true'); arrow.innerHTML = '<svg viewBox="0 0 20 20" fill="none" focusable="false"><path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     trigger.append(value, arrow); wrapper.append(trigger);
     const label = document.querySelector<HTMLLabelElement>(`label[for="${select.id}"]`);
     const name = label?.textContent?.trim() || '選択';
