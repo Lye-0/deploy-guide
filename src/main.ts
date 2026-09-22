@@ -1,4 +1,5 @@
 import './style.css';
+import { enhanceSelects } from './dropdown.ts';
 import { renderReasons, renderCapacity, reasonsText } from './reason-panel.ts';
 import { analyze, projectRoots } from './analyze.ts';
 import { outputFolders } from './output-directory.ts';
@@ -19,6 +20,7 @@ const formatBytes = (bytes: number) => bytes >= 1024 * 1024 ? `${(bytes / 1024 /
 const icon = (c: Candidate) => c.id === 'github' ? '◉' : c.id === 'vercel' ? '▲' : '☁';
 const list = (items: string[], className = '') => `<ul class="text-list ${className}">${items.map(t => `<li>${escape(t)}</li>`).join('')}</ul>`;
 function render() {
+  refreshSelects();
   if (!current) {
     $('result-state').textContent = '解析待ち';
     $('result').innerHTML = `<div class="empty-result"><div class="orbit" aria-hidden="true"><span class="orbit-center">↗</span><span class="orbit-dot dot-one">◉</span><span class="orbit-dot dot-two">▲</span><span class="orbit-dot dot-three">☁</span></div><p class="eyebrow">YOUR PROJECT, YOUR DESTINATION</p><h3>次の公開先を、見つけよう。</h3><p>フォルダを選ぶと、ここに<br />おすすめと判断理由が表示されます。</p><div class="empty-foot"><span>構成を読み取り</span><span aria-hidden="true">→</span><span>3つの公開先を比較</span></div></div>`;
@@ -113,4 +115,5 @@ $('sources-list').innerHTML = SOURCES.map(s => `<article class="source"><a href=
 for (const id of ['about-button', 'sources-button']) $(id).addEventListener('click', () => dialog.showModal());
 $('close-dialog').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', e => { if (e.target === dialog) { const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); } });
+const refreshSelects = enhanceSelects();
 render();
