@@ -1,4 +1,5 @@
 import type { Analysis, Entry } from './types.ts';
+import { detectOutput } from './output-directory.ts';
 export const MAX_FILES = 50_000;
 export const MAX_TEXT = 512 * 1024;
 export const MAX_TOTAL_TEXT = 8 * 1024 * 1024;
@@ -13,7 +14,7 @@ export function projectRoots(entries: Entry[]): string[] {
   const roots = entries.filter(e => /(^|\/)package\.json$/.test(e.path) && !/(^|\/)(dist|build|out|\.next)\//.test(e.path)).map(e => e.path.slice(0, -'package.json'.length));
   return [...new Set(['', ...roots])].sort();
 }
-export function analyze(all: Entry[], root = '', name = 'project', scanWarnings: string[] = []): Analysis {
+export function analyze(all: Entry[], root = '', name = 'project', scanWarnings: string[] = [], outputChoice = 'auto'): Analysis {
   const nested = projectRoots(all).filter(p => p && p !== root && p.startsWith(root));
   const entries = all.filter(e => safePath(e.path) && e.path.startsWith(root) && !nested.some(p => e.path.startsWith(p))).map(e => ({ ...e, path: e.path.slice(root.length) }));
   const a: Analysis = { name, framework: '構成を確認中', next: false, worker: false, runtime: 'unknown', staticExport: false, externalApi: false, recognized: false, assets: null, evidence: [], warnings: [...scanWarnings], incomplete: scanWarnings.length > 0, scanned: entries.length, textRead: entries.filter(e => e.text !== undefined).length };
@@ -51,15 +52,16 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   a.externalApi = Boolean(api);
   if (api) add('HTTP通信の手掛かり（公開先のサーバー要否とは別）', api.path);
   if (html) add('HTMLエントリーポイント', 'index.html');
-  const outputs = ['dist/', 'out/', 'build/'].filter(p => entries.some(e => e.path === p + 'index.html'));
-  const output = outputs[0] ?? (html && !pkg ? '' : null);
+  const outputEntries = all.filter(e => safePath(e.path) && e.path.startsWith(root)).map(e => ({ ...e, path: e.path.slice(root.length) }));
+  const selection = detectOutput(entries, outputChoice, outputEntries);
+  const output = selection.path;
+  a.warnings.push(...selection.warnings);
   if (output !== null) {
-    const assets = entries.filter(e => e.path.startsWith(output) && !/(^|\/)\.[^/]+/.test(e.path));
+    const assets = outputEntries.filter(e => e.path.startsWith(output) && !/(^|\/)\.[^/]+/.test(e.path));
     a.assets = { path: root + (output || './'), count: assets.length, bytes: assets.reduce((s, e) => s + e.size, 0), largest: assets.reduce((s, e) => Math.max(s, e.size), 0) };
-    add('公開フォルダの容量を集計（設定との一致は要確認）', a.assets.path);
-    if (outputs.length > 1) a.warnings.push('公開候補フォルダが複数あります。集計対象が実際の公開先と一致するか確認してください。');
+    a.evidence.push({ label: selection.reason, path: a.assets.path });
   }
-  if (!a.assets) a.warnings.push('公開容量は未確認です。ビルド後のdist / out / build、または公開用フォルダを選ぶと確認できます。');
+  if (!a.assets) a.warnings.push('公開容量は未確認です。「公開フォルダ」で集計対象を指定するか、ビルド後のフォルダを読み込んでください。');
   if (!a.recognized) a.warnings.push('対応するWebアプリ構成を特定できません。対象フォルダと実行方式を確認してください。');
   return a;
 }

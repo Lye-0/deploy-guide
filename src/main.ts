@@ -1,6 +1,7 @@
 import './style.css';
 import { renderReasons, renderCapacity, reasonsText } from './reason-panel.ts';
 import { analyze, projectRoots } from './analyze.ts';
+import { outputFolders } from './output-directory.ts';
 import { recommend, SOURCES } from './rules.ts';
 import type { Analysis, Entry, Preferences, Candidate } from './types.ts';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -46,6 +47,21 @@ function stop(message = '') {
   $('scan-status').textContent = message;
   $('folder-zone').classList.remove('scanning');
 }
+function analyzeSelection(resetOutput = false) {
+  const root = $<HTMLSelectElement>('project-select').value;
+  const select = $<HTMLSelectElement>('output-select');
+  if (resetOutput) {
+    const scoped = entries.filter(e => e.path.startsWith(root)).map(e => ({ ...e, path: e.path.slice(root.length) }));
+    select.innerHTML = '<option value="auto">設定・フォルダ名から自動検出</option><option value="./">このアプリのフォルダ全体を公開対象にする</option>' + outputFolders(scoped).map(p => `<option value="${escape(p)}">${escape(p)}</option>`).join('');
+    select.value = 'auto';
+  }
+  current = analyze(entries, root, projectName + (root ? '/' + root.replace(/\/$/, '') : ''), scanWarnings, select.value);
+  $('output-picker').hidden = false;
+  $('output-status').textContent = current.assets
+    ? `${select.value === 'auto' ? '自動検出' : '指定済み'}：${current.assets.path} ・ ${current.assets.count.toLocaleString()}ファイル`
+    : '公開先を特定できませんでした。集計するフォルダを選んでください。';
+  render();
+}
 function applyEntries(newEntries: Entry[], name: string, warnings: string[] = []) {
   entries = newEntries; projectName = name; scanWarnings = warnings;
   const roots = projectRoots(entries);
@@ -55,15 +71,15 @@ function applyEntries(newEntries: Entry[], name: string, warnings: string[] = []
   // For a monorepo, start with an app rather than a package-less workspace root.
   const root = !entries.some(e => e.path === 'package.json' || e.path === 'index.html') && roots.length > 1 ? roots[1] : '';
   select.value = root;
-  current = analyze(entries, root, root ? `${name}/${root.replace(/\/$/, '')}` : name, warnings);
   $('folder-name').textContent = name;
   $('folder-hint').textContent = demo ? 'サンプルプロジェクトを表示しています' : `${entries.length.toLocaleString()}ファイルを確認しました`;
   $('choose-folder').innerHTML = '別のフォルダを選ぶ <span aria-hidden="true">↗</span>';
-  render();
+  analyzeSelection(true);
 }
 function scan(payload: object) {
   stop(); demo = false; current = null; render();
   $('project-picker').hidden = true;
+  $('output-picker').hidden = true;
   $<HTMLSelectElement>('runtime').value = 'auto';
   $('scan-status').textContent = 'ファイルを確認しています…';
   $('folder-zone').classList.add('scanning');
@@ -89,7 +105,8 @@ $('choose-folder').addEventListener('click', async () => {
 });
 $('folder-input').addEventListener('change', () => { const input = $<HTMLInputElement>('folder-input'); if (input.files?.length) scan({ files: Array.from(input.files) }); input.value = ''; });
 $('cancel-scan').addEventListener('click', () => stop('解析をキャンセルしました。別のフォルダを選べます。'));
-$('project-select').addEventListener('change', () => { const root = $<HTMLSelectElement>('project-select').value; current = analyze(entries, root, projectName + (root ? '/' + root.replace(/\/$/, '') : ''), scanWarnings); render(); });
+$('project-select').addEventListener('change', () => analyzeSelection(true));
+$('output-select').addEventListener('change', () => analyzeSelection());
 document.querySelectorAll('input[type="radio"], #traffic, #runtime').forEach(input => input.addEventListener('change', render));
 const samples: Record<string, Entry[]> = {
   static: [{ path: 'index.html', size: 2400, text: '<main>My portfolio</main>' }, { path: 'style.css', size: 8200 }, { path: 'script.js', size: 3200, text: 'document.querySelector("main")' }, { path: 'images/cover.webp', size: 128000 }],

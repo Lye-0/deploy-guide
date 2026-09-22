@@ -36,6 +36,12 @@
         <p class="privacy"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="5" y="9" width="10" height="8" rx="2" stroke="currentColor"/><path d="M7 9V6a3 3 0 0 1 6 0v3" stroke="currentColor"/></svg>ファイルは端末内で解析。外部に送信しません。</p>
         <div class="sample-row"><span class="muted small">まずは試してみる</span><button class="sample" data-demo="static">静的サイト</button><button class="sample" data-demo="next">Next.js</button><button class="sample" data-demo="worker">APIあり</button></div>
         <div id="project-picker" hidden><label for="project-select" class="field-label">解析するアプリ</label><select id="project-select"></select></div>
+        <div id="output-picker" class="output-picker" hidden>
+          <label for="output-select" class="field-label">公開フォルダ</label>
+          <select id="output-select" aria-describedby="output-help output-status"></select>
+          <p class="help" id="output-help">実際に公開する範囲を選んでください。ビルド不要なら「このアプリのフォルダ全体」を指定できます。秘密ファイル・依存パッケージ等は集計から除外します。</p>
+          <p class="output-status" id="output-status" role="status"></p>
+        </div>
         <section class="conditions" aria-labelledby="conditions-title">
           <div class="section-title"><span class="step">02</span><h2 id="conditions-title">使い方を教えてください</h2><span class="optional">変更できます</span></div>
           <fieldset><legend>公開するサイトの用途</legend><div class="segments"><label><input type="radio" name="purpose" value="personal" /><span>個人・非商用</span></label><label><input type="radio" name="purpose" value="commercial" /><span>事業・商用</span></label><label><input type="radio" name="purpose" value="unknown" checked /><span>未定</span></label></div></fieldset>
