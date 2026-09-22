@@ -11,13 +11,20 @@ export const SOURCES = [
 ];
 export function recommend(a: Analysis, p: Preferences): Candidate[] {
   const runtime = p.runtime === 'auto' ? a.runtime : p.runtime;
-  const gh: Candidate = { id: 'github', name: 'GitHub Pages', plan: 'GitHub Pages', score: 65, blocked: false, reasons: [], cautions: [], condition: '静的配信で完結し、GitHubで管理したい場合に。' };
-  const vc: Candidate = { id: 'vercel', name: 'Vercel', plan: p.purpose === 'commercial' ? 'Pro等の有料プラン' : 'Hobby（個人・非商用）', score: 50, blocked: false, reasons: [], cautions: [], condition: 'Next.jsの統合やPRプレビューを重視する場合に。' };
-  const cf: Candidate = { id: 'cloudflare', name: 'Cloudflare', plan: 'Workers + Static Assets', score: 60, blocked: false, reasons: [], cautions: [], condition: 'APIの追加や配信量の増加に備えたい場合に。' };
+  const gh: Candidate = { id: 'github', name: 'GitHub Pages', plan: 'GitHub Pages', score: 0, blocked: false, reasons: [], cautions: [], condition: '静的配信で完結し、GitHubで管理したい場合に。' };
+  const vc: Candidate = { id: 'vercel', name: 'Vercel', plan: p.purpose === 'commercial' ? 'Pro等の有料プラン' : 'Hobby（個人・非商用）', score: 0, blocked: false, reasons: [], cautions: [], condition: 'Next.jsの統合やPRプレビューを重視する場合に。' };
+  const cf: Candidate = { id: 'cloudflare', name: 'Cloudflare', plan: 'Workers + Static Assets', score: 0, blocked: false, reasons: [], cautions: [], condition: 'APIの追加や配信量の増加に備えたい場合に。' };
   gh.cautions.push('公開サイト1 GB、月100 GBのソフト帯域上限があります。');
   vc.cautions.push('Hobbyは個人・非商用向けです。利用量・機能ごとの上限を確認してください。');
   cf.cautions.push('静的アセットは1ファイル25 MiBまで。無料枠は20,000ファイルまでです。');
+  if (runtime === 'unknown') for (const c of [gh,vc,cf]) c.conditional = true;
   if (runtime === 'server') {
+    vc.conditional = !['next', 'functions'].includes(a.runtimeKind ?? '');
+    cf.conditional = a.runtimeKind !== 'worker';
+    if (a.runtimeKind === 'node') {
+      vc.cautions.unshift('Nodeの常駐HTTPサーバーを検出しました。Functionsへの変換・互換性確認が必要です。');
+      cf.cautions.unshift('Nodeの常駐HTTPサーバーを検出しました。Workersへの変換・互換性確認が必要です。');
+    }
     gh.blocked = true; gh.cautions.unshift('この公開先でサーバー処理が必要なため、GitHub Pages単体では動かせません。');
     vc.reasons.push('サーバー側のAPIやSSRを配置できます。'); cf.reasons.push('WorkerでAPIやサーバー側処理を実行できます。');
     cf.cautions.push('Workersの実行環境との互換性が必要です。無料枠は日10万リクエスト・CPU 10 ms/回で、SSR等は有料枠が必要になる場合があります。');
@@ -31,7 +38,7 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
   if (a.next && runtime !== 'static') { vc.score += 45; vc.reasons.unshift('Next.jsのデプロイ統合を利用でき、構成変更を抑えやすいためです。'); cf.cautions.push('Next.jsはvinext（ベータ）やOpenNext等の対応経路・互換性確認が必要です。'); }
   if (a.worker) { cf.score += 40; cf.reasons.unshift('Cloudflare向けの設定または依存関係が見つかりました。'); }
   if (p.purpose === 'commercial') {
-    gh.blocked = true; gh.cautions.unshift('EC・商用SaaS等には利用制限があります。商用の具体的用途が未確認のため候補から保留しています。');
+    gh.conditional = true; gh.cautions.unshift('EC・商用SaaS等には利用制限があります。事業の具体的用途が未確認のため適合判定を保留しています。');
     if (p.budget === 'free') { vc.blocked = true; vc.cautions.unshift('商用利用と無料必須の条件では、Hobbyを選べません。'); }
     cf.reasons.push('Vercel Hobbyの個人・非商用限定という条件を避けられます。利用規約・無料枠は別途確認が必要です。');
   }
@@ -48,5 +55,5 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
   }
   if (a.externalApi) for (const c of [gh, vc, cf]) c.cautions.push('HTTP通信を検出しました。ブラウザから呼ぶ場合はCORSと公開可能な認証方式を確認してください。');
   if (p.runtime === 'static' && a.runtime === 'server') for (const c of [gh, vc, cf]) c.cautions.unshift('回答に従い静的配信として評価しています。検出したサーバー処理が別の公開先にあるか確認してください。');
-  return [gh, vc, cf].sort((a, b) => Number(a.blocked) - Number(b.blocked) || b.score - a.score);
+  return [gh, vc, cf].sort((a, b) => Number(a.blocked) - Number(b.blocked) || Number(!!a.conditional) - Number(!!b.conditional) || b.score - a.score);
 }

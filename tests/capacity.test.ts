@@ -22,7 +22,7 @@ test('exact limit and one byte over are distinct', () => {
 test('missing and incomplete data never produce false headroom', () => {
   const a = fixture(), c = recommend(a, prefs)[0], m = capacityMetrics(a, c, prefs)[0];
   for (const v of [capacityView({ ...m, current: null }), capacityView(m, true)]) { assert.equal(v.percent, null); assert.equal(v.remaining, '算出不可'); }
-  a.incomplete = true; assert.match(capacitySummary(a, [capacityView(m, true)]), /判定できません/);
+  a.incomplete = true; a.capacityIncomplete = true; assert.match(capacitySummary(a, [capacityView(m, true)]), /判定できません/);
 });
 test('unknown traffic and no numeric file limit have no meter', () => {
   const a = fixture(), c = recommend(a, prefs)[0], m = capacityMetrics(a, c, prefs);

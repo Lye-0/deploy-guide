@@ -47,7 +47,7 @@ export function capacityMetrics(a: Analysis, c: Candidate, p: Preferences): Capa
 }
 export function capacitySummary(a: Analysis, views: CapacityView[]): string {
   if (!a.assets) return '公開容量は未確認です';
-  if (a.incomplete) return '一部未確認のため、余裕は判定できません';
+  if (a.capacityIncomplete ?? a.incomplete) return '一部未確認のため、余裕は判定できません';
   if (views.some(v => v.status === 'over')) return '確認した指標に上限超過があります';
   if (views.some(v => v.status === 'full')) return '確認した指標が上限に達しています';
   if (views.some(v => v.status === 'near')) return '確認した指標の使用率が80%以上です';
@@ -57,7 +57,7 @@ export function capacitySummary(a: Analysis, views: CapacityView[]): string {
 export function detailedReasons(a: Analysis, c: Candidate, p: Preferences): { title: string; body: string }[] {
   const runtime = p.runtime === 'auto' ? a.runtime : p.runtime;
   const intro = `対象の${a.scanned.toLocaleString('ja-JP')}ファイルを確認し、うち${a.textRead.toLocaleString('ja-JP')}ファイルの内容を読み取りました。`;
-  const body = runtime === 'static' ? p.runtime === 'static' ? '回答に従い静的配信として評価しています。サーバー処理が別にある場合は、その公開先が必要です。' : `${a.framework}の構成を検出しました。${a.incomplete ? '読み取りが不完全なため、サーバー処理の要否は追加確認が必要です。' : '今回の解析範囲では、公開先にサーバー処理が必要な手掛かりは見つかっていません。'}` : runtime === 'server' ? 'サーバー処理が必要な構成として評価しています。実行環境との互換性は公開前に確認してください。' : '実行方式は未確定です。「追加の条件」でサーバー処理の要否を確認できます。';
+  const body = p.runtime !== 'auto' ? '実行方式は利用者の指定を優先しています。' : a.runtimeReason ?? '実行方式は確認が必要です。';
   const purpose = { personal: '個人・非商用', commercial: '事業・商用', unknown: '用途は未定' }[p.purpose];
   const priority = { simple: '手軽さ', growth: '拡張性', preview: 'プレビュー' }[p.priority];
   return [
