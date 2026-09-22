@@ -72,8 +72,14 @@ export function inspectClient(
       paths,
       bundled,
     );
-    if (!resolved && bundled && decoded.startsWith("/"))
-      resolved = resolveReference("/public" + decoded, from, paths, true);
+    if (!resolved && bundled && (decoded.startsWith("/") || kind === "asset")) {
+      // Vite serves public files at URL root; HTML may reference them relatively.
+      // Resolve against the referring URL, not by matching basenames anywhere.
+      try {
+        const pathname = decodeURIComponent(new URL(spec, "https://local.invalid/" + from).pathname);
+        resolved = resolveReference("/public" + pathname, from, paths, true);
+      } catch { /* Keep the unresolved-reference diagnostic below. */ }
+    }
     if (!resolved) {
       issue(`${from}の参照先「${spec}」を確認できません。`);
       return;
