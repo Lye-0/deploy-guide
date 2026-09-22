@@ -27,11 +27,31 @@ function jsonConfig(text: string): Record<string, unknown> {
 function viteOutput(text: string): { present: boolean; value?: string } {
   const clean = uncomment(text);
   if (/\.\.\.|\broot\s*:/.test(clean)) return { present: true };
-  const build = clean.match(/\bbuild\s*:\s*\{([^{}]*)\}/);
-  if (!build) return { present: /\boutDir\b|\bbuild\s*:/.test(clean) };
-  const matches = [...build[1].matchAll(/(?:^|,)\s*(?:outDir|"outDir"|'outDir')\s*:\s*(['"])([^'"\\]*)\1\s*(?=,|$)/g)];
-  if (matches.length === 1 && (clean.match(/\boutDir\b/g) ?? []).length === 1) return { present: true, value: matches[0][2] };
-  return { present: /\boutDir\b/.test(clean) };
+  // Tokenize without executing configuration; keep nested object braces balanced.
+  const tokens = clean.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|[^\s]/g) ?? [];
+  const key = (token: string) => token.replace(/^['"]|['"]$/g, '');
+  const builds = tokens.map((t, i) => key(t) === 'build' && tokens[i + 1] === ':' ? i : -1).filter(i => i >= 0);
+  if (builds.length > 1) return { present: true };
+  if (!builds.length) return { present: /\boutDir\b/.test(clean) };
+  const begin = builds[0] + 2;
+  if (tokens[begin] !== '{') return { present: true };
+  let depth = 1;
+  const values: (string | undefined)[] = [];
+  for (let i = begin + 1; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token === '{') depth++;
+    if (token === '}') {
+      depth--;
+      if (depth === 0) return values.length === 0 ? { present: false } : values.length === 1 ? { present: true, value: values[0] } : { present: true };
+    }
+    if (depth === 1 && key(token) === 'outDir' && tokens[i + 1] === ':') {
+      const literal = tokens[i + 2] ?? '';
+      const value = /^(['"])[^'"\\]*\1$/.test(literal) && [',', '}'].includes(tokens[i + 3]) ? literal.slice(1, -1) : undefined;
+      values.push(value);
+    }
+  }
+  return { present: true };
+
 }
 export function detectOutput(entries: Entry[], manual = 'auto', files = entries): OutputSelection {
   const available = (path: string) => files.some(e => e.path.startsWith(path));
