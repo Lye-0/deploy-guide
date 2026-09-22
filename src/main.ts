@@ -86,10 +86,10 @@ function applyEntries(newEntries: Entry[], name: string, warnings: string[] = []
   entries = newEntries; projectName = name; scanWarnings = warnings;
   const roots = projectRoots(entries);
   const select = $<HTMLSelectElement>('project-select');
-  select.innerHTML = roots.map(p => `<option value="${escape(p)}">${escape(p || 'ルートフォルダ')}</option>`).join('');
+  select.innerHTML = roots.map(p => `<option value="${escape(p)}">${escape(p || 'リポジトリ全体')}</option>`).join('');
   $('project-picker').hidden = roots.length <= 1;
   // For a monorepo, start with an app rather than a package-less workspace root.
-  const root = !entries.some(e => e.path === 'package.json' || e.path === 'index.html') && roots.length > 1 ? roots[1] : '';
+  const root = !entries.some(e => e.path === 'package.json' || e.path === 'index.html' || e.path === 'pnpm-workspace.yaml') && roots.length > 1 ? roots[1] : '';
   select.value = root;
   $('folder-name').textContent = name;
   $('folder-hint').textContent = `${entries.length.toLocaleString()}ファイルを確認しました`;

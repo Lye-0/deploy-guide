@@ -1,3 +1,4 @@
+import { analyzeWorkspace } from './workspace-layout.ts';
 import type { Analysis, Entry } from './types.ts';
 import { detectOutput } from './output-directory.ts';
 import { inspectClient } from './client-graph.ts';
@@ -20,6 +21,8 @@ function launchEntries(scripts: Record<string, unknown>, files: Set<string>): { 
   return { paths: [...found], unknown };
 }
 export function analyze(all: Entry[], root = '', name = 'project', scanWarnings: string[] = [], outputChoice = 'auto'): Analysis {
+  const workspace = analyzeWorkspace(all, root, name, scanWarnings, outputChoice);
+  if (workspace) return workspace;
   const nested = projectRoots(all).filter(p => p && p !== root && p.startsWith(root));
   const entries = all.filter(e => safePath(e.path) && e.path.startsWith(root) && !nested.some(p => e.path.startsWith(p))).map(e => ({ ...e, path: e.path.slice(root.length) }));
   const map = new Map(entries.map(e => [e.path, e]));
