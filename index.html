@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f6f7f9" />
+  <meta name="description" content="プロジェクトのフォルダから、GitHub Pages・Vercel・Cloudflareのおすすめと判断理由を。ファイルはブラウザ内で解析します。" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Deploy Guide — デプロイ先を、迷わず。</title>
+</head>
+<body>
+  <a href="#main" class="skip-link">本文へ移動</a>
+  <header class="header wrap">
+    <a class="brand" href="./" aria-label="Deploy Guide ホーム"><span class="brand-symbol" aria-hidden="true">↗</span>Deploy Guide<span class="version">BETA</span></a>
+    <button class="quiet" id="about-button">判定基準 <span aria-hidden="true">↗</span></button>
+  </header>
+  <main id="main" class="wrap">
+    <section class="intro">
+      <p class="eyebrow"><span></span> A GOOD HOME FOR YOUR NEXT PROJECT</p>
+      <h1>デプロイ先を、<br class="mobile-break" /><span>迷わず。</span></h1>
+      <p class="intro-copy">フォルダから、あなたのプロジェクトに合う公開先を。<br />おすすめも、その理由も、ここで分かります。</p>
+      <div class="providers" aria-label="比較するサービス"><span><b aria-hidden="true">◉</b> GitHub Pages</span><span><b aria-hidden="true">▲</b> Vercel</span><span><b class="cloud-icon" aria-hidden="true">☁</b> Cloudflare</span></div>
+    </section>
+    <div class="workspace">
+      <section class="setup panel" aria-labelledby="setup-title">
+        <div class="section-title"><span class="step">01</span><h2 id="setup-title">プロジェクトを選ぶ</h2></div>
+        <div class="folder-zone" id="folder-zone">
+          <svg class="folder-art" viewBox="0 0 100 76" fill="none" aria-hidden="true"><path d="M13 18a6 6 0 0 1 6-6h23l9 10h31a6 6 0 0 1 6 6v34H13Z" fill="#dce5fd" stroke="#92aceb" stroke-width="1.5"/><path d="M9 34a5 5 0 0 1 5-5h72a5 5 0 0 1 5 6l-6 27a6 6 0 0 1-6 5H20a6 6 0 0 1-6-5Z" fill="#f5f8ff" stroke="#92aceb" stroke-width="1.5"/><path d="M42 48h16m-8-8v16" stroke="#3564d9" stroke-width="2" stroke-linecap="round"/></svg>
+          <p class="folder-name" id="folder-name">プロジェクトのフォルダ</p>
+          <p class="muted small" id="folder-hint">ソースコード、またはビルド済みのフォルダを選択</p>
+          <button class="primary" id="choose-folder">フォルダを選ぶ <span aria-hidden="true">↗</span></button>
+          <input type="file" id="folder-input" webkitdirectory multiple hidden />
+          <button class="quiet small" id="cancel-scan" hidden>解析をキャンセル</button>
+          <p class="scan-status small" id="scan-status" role="status" aria-live="polite"></p>
+        </div>
+        <p class="privacy"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="5" y="9" width="10" height="8" rx="2" stroke="currentColor"/><path d="M7 9V6a3 3 0 0 1 6 0v3" stroke="currentColor"/></svg>ファイルは端末内で解析。外部に送信しません。</p>
+        <div class="sample-row"><span class="muted small">まずは試してみる</span><button class="sample" data-demo="static">静的サイト</button><button class="sample" data-demo="next">Next.js</button><button class="sample" data-demo="worker">APIあり</button></div>
+        <div id="project-picker" hidden><label for="project-select" class="field-label">解析するアプリ</label><select id="project-select"></select></div>
+        <section class="conditions" aria-labelledby="conditions-title">
+          <div class="section-title"><span class="step">02</span><h2 id="conditions-title">使い方を教えてください</h2><span class="optional">変更できます</span></div>
+          <fieldset><legend>公開するサイトの用途</legend><div class="segments"><label><input type="radio" name="purpose" value="personal" /><span>個人・非商用</span></label><label><input type="radio" name="purpose" value="commercial" /><span>事業・商用</span></label><label><input type="radio" name="purpose" value="unknown" checked /><span>未定</span></label></div></fieldset>
+          <fieldset><legend>費用の条件</legend><div class="segments"><label><input type="radio" name="budget" value="free" checked /><span>無料で運用</span></label><label><input type="radio" name="budget" value="paid" /><span>有料も検討</span></label></div></fieldset>
+          <fieldset><legend>重視すること</legend><div class="segments"><label><input type="radio" name="priority" value="simple" checked /><span>手軽さ</span></label><label><input type="radio" name="priority" value="growth" /><span>拡張性</span></label><label><input type="radio" name="priority" value="preview" /><span>プレビュー</span></label></div></fieldset>
+          <details class="additional"><summary>追加の条件 <span>アクセス量・サーバー処理</span></summary><label class="field-label" for="traffic">月間の配信量の見込み</label><select id="traffic"><option value="unknown">分からない</option><option value="small">100 GBより十分少ない</option><option value="large">100 GBを超える見込み</option></select><p class="help">ソースの容量ではなく、利用者へ配信する月間データ量です。</p><label class="field-label" for="runtime">今回の公開先にサーバー処理は必要？</label><select id="runtime"><option value="auto">ファイルから推定する</option><option value="static">不要（ブラウザで完結／APIは別にある）</option><option value="server">必要（SSR・自作API・秘密情報の処理）</option></select></details>
+        </section>
+      </section>
+      <section class="result-area" aria-labelledby="result-heading">
+        <div class="section-title result-title"><span class="step">03</span><h2 id="result-heading">あなたに合う公開先</h2><span id="result-state" class="optional">解析待ち</span></div>
+        <div id="result" aria-live="polite" aria-atomic="true"></div>
+      </section>
+    </div>
+    <section class="method" id="method"><div><p class="eyebrow">HOW WE DECIDE</p><h2>構成だけでなく、<br />使い方まで考えて。</h2></div><div class="method-items"><article><span>01 /</span><h3>動かせるか</h3><p>静的配信、SSR、API。<br />必要な実行環境を確認します。</p></article><article><span>02 /</span><h3>条件に合うか</h3><p>用途、無料枠、ファイル容量。<br />制限との相性を確認します。</p></article><article><span>03 /</span><h3>扱いやすいか</h3><p>既存の構成と運用の好みから、<br />選ぶ理由を整理します。</p></article></div></section>
+  </main>
+  <footer class="wrap footer"><span class="brand footer-brand">↗ Deploy Guide</span><span>Built to help you ship.</span><button class="quiet small" id="sources-button">出典・解析の範囲</button></footer>
+  <dialog id="sources-dialog" aria-labelledby="dialog-title"><div class="dialog-top"><h2 id="dialog-title">判定基準と解析の範囲</h2><button class="icon-button" id="close-dialog" aria-label="閉じる">×</button></div><p>構成の適合性、プランの条件、運用の好みを順に評価します。実際のビルドや動作、速度を保証するものではありません。</p><div id="sources-list"></div><h3>ファイルの取り扱い</h3><p>選んだフォルダを読み取り専用で扱います。ソースや設定を実行せず、ファイル内容・診断結果を外部送信、永続保存しません。.env・秘密鍵・.git・node_modulesは解析対象から除外します。</p><p>1ファイル512 KiB、テキスト合計8 MiB、ファイル一覧50,000件を上限とします。上限や読み取りエラーがある場合は、未確認として結果に表示します。動的に生成する設定や依存先の内部までは検証しません。</p><p>容量は検出した公開フォルダの合計です。転送時の圧縮率、月間アクセス量、実際のビルド時間は推定しません。複数の公開フォルダがある場合は対象の確認が必要です。</p><p class="muted small">基準確認日：2026-09-22。料金・制限は変更される場合があります。</p></dialog>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
