@@ -7,7 +7,7 @@ import type { Analysis, Entry, Preferences, Candidate } from './types.ts';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 let current: Analysis | null = null, worker: Worker | null = null;
-let entries: Entry[] = [], projectName = '', scanWarnings: string[] = [], demo = false;
+let entries: Entry[] = [], projectName = '', scanWarnings: string[] = [];
 const prefs = (): Preferences => ({
   purpose: document.querySelector<HTMLInputElement>('input[name="purpose"]:checked')!.value as Preferences['purpose'],
   budget: document.querySelector<HTMLInputElement>('input[name="budget"]:checked')!.value as Preferences['budget'],
@@ -28,15 +28,15 @@ function render() {
   const candidates = recommend(current, p), best = candidates.find(c => !c.blocked);
   const unknown = (!current.recognized && p.runtime === 'auto');
   const provisional = current.incomplete || p.purpose === 'unknown' || (current.runtime === 'unknown' && p.runtime === 'auto');
-  $('result-state').textContent = demo ? 'サンプルの結果' : unknown ? '構成の確認が必要' : provisional ? '暫定のおすすめ' : '解析完了';
+  $('result-state').textContent = unknown ? '構成の確認が必要' : provisional ? '暫定のおすすめ' : '解析完了';
   const runtime = p.runtime === 'auto' ? current.runtime : p.runtime;
-  const badges = `<div class="detected"><span>${escape(current.framework)}</span><span>${runtime === 'static' ? '静的配信' : runtime === 'server' ? 'サーバー処理あり' : '実行方式は要確認'}</span>${demo ? '<span>サンプル</span>' : ''}</div>`;
+  const badges = `<div class="detected"><span>${escape(current.framework)}</span><span>${runtime === 'static' ? '静的配信' : runtime === 'server' ? 'サーバー処理あり' : '実行方式は要確認'}</span></div>`;
   let primary = '';
   if (unknown || !best) primary = `<article class="recommendation needs-check"><p class="eyebrow">LET’S CHECK ONE MORE THING</p><h3>${unknown ? '構成を確認してください' : '構成・条件の見直しが必要です'}</h3><p>${unknown ? '対応するWebアプリの構成を特定できませんでした。対象のアプリを選ぶか、追加の条件で実行方式を指定してください。' : '現在の条件では、そのままおすすめできる公開先がありません。以下の制限を確認してください。'}</p>${badges}</article>`;
   else primary = `<article class="recommendation ${best.id}"><div class="recommendation-top"><span class="recommend-label">${provisional ? '暫定のおすすめ' : 'おすすめの公開先'}</span><span class="match-mark" aria-hidden="true">↗</span></div><h3><span class="provider-icon" aria-hidden="true">${icon(best)}</span>${best.name}</h3><p class="plan">${escape(best.plan)}</p>${badges}${renderReasons(current, best, p)}</article><section class="cautions"><h3><span aria-hidden="true">!</span> 公開前に確認すること</h3>${list(best.cautions.slice(0, 3))}${best.cautions.length > 3 ? `<details><summary>ほか${best.cautions.length - 3}件の確認点</summary>${list(best.cautions.slice(3))}</details>` : ''}</section>`;
   $('result').innerHTML = `${primary}<section class="alternatives"><h3>${!best || unknown ? '各サービスの条件' : 'ほかの選択肢'}</h3>${candidates.filter(c => !best || unknown || c.id !== best.id).map(c => `<details class="alternative"><summary><span class="alternative-name"><b aria-hidden="true">${icon(c)}</b>${c.name}</span><span class="status-tag ${c.blocked ? 'hold' : ''}">${c.blocked ? '条件の変更が必要' : '候補'}</span></summary><div class="alternative-body"><p>${escape(c.condition)}</p>${renderCapacity(current!, c, p)}${list(c.cautions)}<p class="muted small">${escape(c.plan)}</p></div></details>`).join('')}</section><details class="evidence"><summary>解析の根拠・未確認事項 <span>${current.evidence.length}件の手掛かり</span></summary><dl class="scan-facts"><div><dt>対象</dt><dd>${escape(current.name)}</dd></div><div><dt>確認ファイル</dt><dd>${current.scanned.toLocaleString()}件（内容読取 ${current.textRead.toLocaleString()}件）</dd></div><div><dt>公開容量</dt><dd>${current.assets ? `${formatBytes(current.assets.bytes)} / ${current.assets.count.toLocaleString()}ファイル` : '未確認'}</dd></div>${current.assets ? `<div><dt>集計対象</dt><dd>${escape(current.assets.path)}</dd></div>` : ''}</dl><ul class="evidence-list">${current.evidence.map(e => `<li>${escape(e.label)}<code>${escape(e.path)}</code></li>`).join('')}</ul>${current.warnings.length ? `<h4>未確認・補足</h4>${list(current.warnings)}` : ''}<p class="help">静的解析による提案です。ビルド、実際の動作、配信速度は未検証です。利用条件の回答も判定に使用しています。</p></details><div class="result-bottom"><span>基準確認：2026.09.22</span><button class="quiet small" id="copy-result">結果をコピー <span aria-hidden="true">↗</span></button></div>`;
   $('copy-result').addEventListener('click', async () => {
-    const text = `Deploy Guide${demo ? '（サンプル）' : ''}\n対象：${current!.name}\n${unknown ? '構成の確認が必要' : best ? `${provisional ? '暫定の' : ''}おすすめ：${best.name} / ${best.plan}\n理由：\n${reasonsText(current!, best, p)}\n確認点：\n${best.cautions.join('\n')}` : '構成・条件の見直しが必要'}\n未確認事項：\n${current!.warnings.join('\n')}\n基準確認：2026-09-22\n静的解析による提案。ビルド・動作・速度は未検証。`;
+    const text = `Deploy Guide\n対象：${current!.name}\n${unknown ? '構成の確認が必要' : best ? `${provisional ? '暫定の' : ''}おすすめ：${best.name} / ${best.plan}\n理由：\n${reasonsText(current!, best, p)}\n確認点：\n${best.cautions.join('\n')}` : '構成・条件の見直しが必要'}\n未確認事項：\n${current!.warnings.join('\n')}\n基準確認：2026-09-22\n静的解析による提案。ビルド・動作・速度は未検証。`;
     try { await navigator.clipboard.writeText(text); $('copy-result').textContent = 'コピーしました'; } catch { $('copy-result').textContent = 'コピーできませんでした'; }
   });
 }
@@ -72,12 +72,12 @@ function applyEntries(newEntries: Entry[], name: string, warnings: string[] = []
   const root = !entries.some(e => e.path === 'package.json' || e.path === 'index.html') && roots.length > 1 ? roots[1] : '';
   select.value = root;
   $('folder-name').textContent = name;
-  $('folder-hint').textContent = demo ? 'サンプルプロジェクトを表示しています' : `${entries.length.toLocaleString()}ファイルを確認しました`;
+  $('folder-hint').textContent = `${entries.length.toLocaleString()}ファイルを確認しました`;
   $('choose-folder').innerHTML = '別のフォルダを選ぶ <span aria-hidden="true">↗</span>';
   analyzeSelection(true);
 }
 function scan(payload: object) {
-  stop(); demo = false; current = null; render();
+  stop(); current = null; render();
   $('project-picker').hidden = true;
   $('output-picker').hidden = true;
   $<HTMLSelectElement>('runtime').value = 'auto';
@@ -108,15 +108,6 @@ $('cancel-scan').addEventListener('click', () => stop('解析をキャンセル�
 $('project-select').addEventListener('change', () => analyzeSelection(true));
 $('output-select').addEventListener('change', () => analyzeSelection());
 document.querySelectorAll('input[type="radio"], #traffic, #runtime').forEach(input => input.addEventListener('change', render));
-const samples: Record<string, Entry[]> = {
-  static: [{ path: 'index.html', size: 2400, text: '<main>My portfolio</main>' }, { path: 'style.css', size: 8200 }, { path: 'script.js', size: 3200, text: 'document.querySelector("main")' }, { path: 'images/cover.webp', size: 128000 }],
-  next: [{ path: 'package.json', size: 300, text: '{"dependencies":{"next":"16.0.0","react":"19.0.0"}}' }, { path: 'app/page.tsx', size: 500, text: 'export default function Page() {}' }, { path: 'app/actions.ts', size: 600, text: '"use server"; export async function save() {}' }],
-  worker: [{ path: 'package.json', size: 250, text: '{"dependencies":{"hono":"4.0.0"}}' }, { path: 'wrangler.jsonc', size: 100, text: '{"main":"src/index.ts","assets":{"directory":"dist"}}' }, { path: 'src/index.ts', size: 400, text: 'import { Hono } from "hono"; const app = new Hono(); export default app;' }, { path: 'dist/index.html', size: 5000 }]
-};
-document.querySelectorAll<HTMLButtonElement>('[data-demo]').forEach(button => button.addEventListener('click', () => {
-  stop('サンプルを読み込みました'); demo = true; $<HTMLSelectElement>('runtime').value = 'auto';
-  applyEntries(samples[button.dataset.demo!], { static: 'my-portfolio', next: 'next-app', worker: 'worker-api' }[button.dataset.demo!]!);
-}));
 const dialog = $<HTMLDialogElement>('sources-dialog');
 $('sources-list').innerHTML = SOURCES.map(s => `<article class="source"><a href="${s.url}" target="_blank" rel="noopener noreferrer">${escape(s.name)} ↗</a><p>${escape(s.note)}</p></article>`).join('');
 for (const id of ['about-button', 'sources-button']) $(id).addEventListener('click', () => dialog.showModal());
