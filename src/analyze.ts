@@ -1,3 +1,5 @@
+import { localStaticServers } from './static-tools.ts';
+import { staticRoot } from './static-root.ts';
 import { runtimeSource, startEntries } from './runtime-scope.ts';
 import type { Analysis, Entry } from './types.ts';
 import { detectOutput } from './output-directory.ts';
@@ -9,7 +11,7 @@ export function safePath(path: string): boolean {
   return !path.split('/').some(p => ignored.test(p) || /^\.env(?:\.|$)/i.test(p) || /\.(pem|key|p12|pfx|crt|keystore)$/i.test(p) || /^(id_rsa|id_ed25519|credentials(?:\.json)?|\.npmrc|\.netrc)$/i.test(p));
 }
 export function wantsText(path: string): boolean {
-  return safePath(path) && !/(^|\/)(dist|build|out|\.next|vendor)\//.test(path) && !/(?:lock|\.min)\.(?:json|js)$/.test(path) && /(?:\.(?:[cm]?[jt]sx?|html|jsonc?|toml|ya?ml))$/.test(path);
+  return safePath(path) && !/(^|\/)(dist|build|out|\.next|vendor)\//.test(path) && !/(?:^|\/)(?:package-lock|npm-shrinkwrap)\.json$|\.min\.js$/.test(path) && /(?:\.(?:[cm]?[jt]sx?|html|jsonc?|toml|ya?ml))$/.test(path);
 }
 export function projectRoots(entries: Entry[]): string[] {
   const roots = entries.filter(e => /(^|\/)package\.json$/.test(e.path) && !/(^|\/)(dist|build|out|\.next)\//.test(e.path)).map(e => e.path.slice(0, -'package.json'.length));
@@ -24,8 +26,9 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   let deps: Record<string, unknown> = {};
   let runtimeDeps: Record<string, unknown> = {};
   let productionEntries = new Set<string>();
+  let scripts: unknown;
   if (pkg?.text) {
-    try { const json = JSON.parse(pkg.text); deps = { ...json.dependencies, ...json.devDependencies }; runtimeDeps = json.dependencies ?? {}; productionEntries = startEntries(json.scripts); add('依存関係を確認', pkg.path); }
+    try { const json = JSON.parse(pkg.text); deps = { ...json.dependencies, ...json.devDependencies }; runtimeDeps = json.dependencies ?? {}; scripts = json.scripts; productionEntries = startEntries(scripts); add('依存関係を確認', pkg.path); }
     catch { a.warnings.push('package.jsonを読み取れません。構成の確認が必要です。'); a.incomplete = true; }
   }
   a.next = Boolean(deps.next);
@@ -37,8 +40,10 @@ export function analyze(all: Entry[], root = '', name = 'project', scanWarnings:
   if (cf) add('Cloudflareの設定あり', cf.path);
   const candidateServerFiles = entries.filter(e => !/(^|\/)(dist|build|out|\.next|public)\//.test(e.path) && /(^|\/)(pages\/api\/|api\/.*\.[cm]?[jt]s$|server\.[cm]?[jt]s$|functions\/|.*\+server\.[jt]s$)/.test(e.path));
   const candidateServerCode = entries.filter(e => e.text && !/(^|\/)(dist|build|out|\.next|public)\//.test(e.path) && /\.(?:[cm]?[jt]sx?)$/.test(e.path) && /\bexport\s+(?:async\s+)?(?:function|const)\s+getServerSideProps\b|^\s*['"]use server['"]\s*;?|\b(?:Bun|Deno)\.serve\s*\(|\b(?:app|server)\.listen\s*\(/m.test(e.text));
-  const serverFiles = candidateServerFiles.filter(e => runtimeSource(e.path, productionEntries));
-  const serverCode = candidateServerCode.filter(e => runtimeSource(e.path, productionEntries));
+  const previewServers = staticRoot(entries).ready ? localStaticServers(entries, scripts) : new Set<string>();
+  for (const path of previewServers) add('ローカルの静的配信サーバーと推定（公開先のバックエンド要件から除外）', path);
+  const serverFiles = candidateServerFiles.filter(e => runtimeSource(e.path, productionEntries) && !previewServers.has(e.path));
+  const serverCode = candidateServerCode.filter(e => runtimeSource(e.path, productionEntries) && !previewServers.has(e.path));
   const tooling = [...new Map([...candidateServerFiles, ...candidateServerCode].filter(e => !runtimeSource(e.path, productionEntries)).map(e => [e.path, e])).values()];
   for (const e of tooling.slice(0, 5)) add('テスト・開発用のためサーバー判定から除外', e.path);
   const routeFiles = entries.filter(e => runtimeSource(e.path, productionEntries) && /(^|\/)app\/(?:.*\/)?route\.[jt]s$/.test(e.path));

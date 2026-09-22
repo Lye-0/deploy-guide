@@ -1,3 +1,4 @@
+import { optionalPreview } from './static-tools.ts';
 import type { Entry } from './types.ts';
 
 /** Conservative source-only check. No project code or scripts are executed. */
@@ -14,7 +15,7 @@ export function staticRoot(entries: Entry[]): { ready: boolean; note: string } {
       const deps = { ...data.dependencies, ...data.devDependencies };
       if (['express', 'fastify', 'hono', '@nestjs/core'].some(key => key in deps)) return { ready: false, note: 'サーバー用の依存関係があるため、公開する静的ファイルの範囲を確認してください。' };
       if (Object.values(data.scripts ?? {}).some(value => typeof value === 'string' && /\b(vite|webpack|rollup|parcel|next|nuxt|astro|tsc|esbuild)\b/.test(value))) return { ready: false, note: buildNote };
-      if (['vite', 'webpack', 'rollup', 'parcel', 'next', 'nuxt', 'astro', '@sveltejs/kit', 'react-scripts', '@angular/core'].some(key => key in deps) || Object.entries(data.scripts ?? {}).some(([key, value]) => /^build(?::|$)|^(prebuild|postbuild|generate|export)$/.test(key) && typeof value === 'string' && value.trim())) return { ready: false, note: buildNote };
+      if (['vite', 'webpack', 'rollup', 'parcel', 'next', 'nuxt', 'astro', '@sveltejs/kit', 'react-scripts', '@angular/core'].some(key => key in deps) || Object.entries(data.scripts ?? {}).some(([key, value]) => /^build(?::|$)|^(prebuild|postbuild|generate|export)$/.test(key) && typeof value === 'string' && value.trim() && !(key === 'build:preview' && optionalPreview(entries, value)))) return { ready: false, note: buildNote };
     } catch { return { ready: false, note: 'package.jsonを読み取れないため、公開範囲を自動判定できません。' }; }
   }
   // Preserve support for directly selected build artifacts whose HTML was not read by the scanner.
