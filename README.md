@@ -8,6 +8,19 @@ Node.js 24以上。`npm ci` → `npm run dev`。`npm test` / `npm run build` / `
 
 GitHubの`deploy-guide`リポジトリに配置し、Settings → Pages → SourceをGitHub Actionsに設定します。mainへのpushで同梱ワークフローが公開します。パスは`/deploy-guide/`。独自ドメインや別名では`vite.config.ts`のbaseを変更します。
 
+### このリポジトリのGitHub Pages公開
+
+- リポジトリ：`https://github.com/Lye-0/deploy-guide`
+- 公開URL：`https://lye-0.github.io/deploy-guide/`
+- ワークフロー：`.github/workflows/pages.yml`
+- 公開対象：`dist/`のみ。ソースや解析対象のローカルファイルは公開対象に含めません。
+
+初回設定はSettings → Pages → Build and deployment → Sourceで「GitHub Actions」を選択します。このリポジトリでは2026-09-23の準備時に設定済みであることをAPIで確認しました。
+
+公開するときは検証済みの変更をmainへpushします。`npm ci` → テスト → ビルド → gzipサイズ確認が成功した場合だけ、Pages用の成果物をアップロードして公開します。PRでは同じ検証までを実行し、公開しません。main上ではActionsの「Deploy GitHub Pages」→「Run workflow」から再公開もできます。
+
+公開後はActionsのdeployジョブが成功したことを確認し、上記URLでフォルダ選択と解析結果の表示を確認してください。リポジトリ名・独自ドメインを変更する場合はViteのbaseも合わせて変更します。ブラウザのフォルダ選択やWorkerは静的配信で動作し、バックエンドやAPIキーの登録は不要です。
+
 ## 判定の契約
 
 - **起点**：HTMLエントリーポイント、package.jsonの起動コマンド（npm等のスクリプト参照も追跡）、確認できたフレームワークの公開ルート、Workersのmain。
