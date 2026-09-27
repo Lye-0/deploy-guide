@@ -2,7 +2,7 @@ import type { Entry } from './types.ts';
 export const MAX_FILES = 50_000;
 export const MAX_TEXT = 4 * 1024 * 1024;
 export const MAX_TOTAL_TEXT = 32 * 1024 * 1024;
-const ignored = /^(node_modules|\.git|\.svn|\.hg|\.idea|\.vscode|\.kilo|\.agents|\.codex|coverage|\.cache|\.turbo)$/i;
+const ignored = /^(node_modules|\.git|\.svn|\.hg|\.idea|\.vscode|\.kilo|\.agents|\.codex|coverage|\.cache|\.turbo|\.test-output|test-results|playwright-report)$/i;
 export function safePath(path: string): boolean {
   return !path.split('/').some(p => ignored.test(p) || /^(?:\.env|\.dev\.vars)(?:\.|$)/i.test(p) || /\.(pem|key|p12|pfx|crt|keystore)$/i.test(p) || /^(id_rsa|id_ed25519|credentials(?:\.json)?|\.npmrc|\.netrc)$/i.test(p));
 }

@@ -122,6 +122,17 @@ test("secrets used by Workers are excluded before file reads", () => {
     assert.equal(safePath(p), false);
 });
 
+test("generated test reports do not consume the project inventory limit", () => {
+  for (const path of [
+    ".test-output/gallery/frame.png",
+    "apps/web/.test-output/shots/index.html",
+    "test-results/run/log.json",
+    "playwright-report/index.html",
+  ]) assert.equal(safePath(path), false, path);
+  for (const path of ["src/main.ts", "dist/index.html", "release/index.html", "tests/core.test.ts"])
+    assert.equal(safePath(path), true, path);
+});
+
 test("dynamic environment variables do not silently use defaults", () => {
   const entries = fixture();
   entries[2].text = JSON.stringify({
