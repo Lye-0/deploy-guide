@@ -73,3 +73,52 @@ test('script argument forwarding does not silently pick default mode',()=>{
  const a=files();a[0]=f('package.json',JSON.stringify({scripts:{build:'pnpm bundle -- --mode public',bundle:'vite build'}}));
  assert.equal(detectOutput(a).path,null);
 });
+
+test('GitHub Pages workflow binds a CLI base override to its uploaded build output',()=>{
+  const entries = [
+    f('package.json', JSON.stringify({scripts:{build:'tsc -b && vite build', 'build:pages':'tsc -b && vite build --base=/GAME/ --outDir=dist-pages'},devDependencies:{vite:'7'}})),
+    f('vite.config.ts', "export default defineConfig({base:'./'})"),
+    f('index.html','<h1>game</h1>'), f('dist/index.html'),f('dist-pages/index.html'),f('dist-pages/assets/game.js'),
+    f('.github/workflows/pages.yml',`jobs:
+  build:
+    steps:
+      - run: pnpm test
+      - run: pnpm build:pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-pages
+  deploy:
+    steps:
+      - uses: actions/deploy-pages@v4`),
+  ];
+  const result = detectOutput(entries);
+  assert.equal(result.path,'dist-pages/');
+  assert.match(result.reason,/pages.yml.*build:pages/);
+  assert.deepEqual(result.profiles?.map(p=>[p.script,p.output,p.base]),[['build','dist',undefined],['build:pages','dist-pages','/GAME/']]);
+  const analysis=analyze(entries);
+  assert.equal(analysis.runtime,'static');
+  assert.equal(analysis.assets?.count,2);
+});
+
+test('an upload path alone or a different build script does not choose an artifact',()=>{
+  const common=[f('package.json', JSON.stringify({scripts:{build:'vite build','build:pages':'vite build --base=/GAME/ --outDir=dist-pages'},devDependencies:{vite:'7'}})),f('index.html'),f('dist/index.html'),f('dist-pages/index.html')];
+  for(const workflow of [
+    `jobs:\n  build:\n    steps:\n      - uses: actions/upload-pages-artifact@v3\n        with:\n          path: dist-pages`,
+    `jobs:\n  build:\n    steps:\n      - run: pnpm build\n      - uses: actions/upload-pages-artifact@v3\n        with:\n          path: dist-pages`,
+    `jobs:\n  build:\n    steps:\n      - run: pnpm build:pages\n      - uses: actions/upload-pages-artifact@v3\n        with:\n          path: \${{ env.OUTPUT }}`,
+  ]) assert.equal(detectOutput([...common,f('.github/workflows/pages.yml',workflow)]).path,null);
+});
+
+test('Pages workflow and build script must belong to the same job',()=>{
+  const entries=[f('package.json', JSON.stringify({scripts:{build:'vite build','build:pages':'vite build --outDir dist-pages'},devDependencies:{vite:'7'}})),f('dist/index.html'),f('dist-pages/index.html'),
+    f('.github/workflows/pages.yml',`jobs:
+  first:
+    steps:
+      - run: pnpm build:pages
+  second:
+    steps:
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist-pages`)];
+  assert.equal(detectOutput(entries).path,null);
+});

@@ -1,4 +1,5 @@
 import { buildProfiles, type BuildProfile } from './build-profiles.ts';
+import { pagesBindings } from './pages-workflow.ts';
 import type { Entry } from './types.ts';
 export type OutputSelection = { path: string | null; reason: string; warnings: string[]; profiles?: BuildProfile[] };
 
@@ -51,6 +52,8 @@ function detect(entries: Entry[], manual: string, files: Entry[], profiles: Buil
       }
     } catch { unresolved = true; warnings.push(`${e.path}の設定を読み取れません。公開フォルダを手動で指定してください。`); }
   }
+  for (const binding of pagesBindings(entries, profiles))
+    add(binding.path, `${binding.workflow}の${binding.script}とPages成果物`);
   const hosting = [...new Set(found.map(f => f.path))];
   const variants = [...new Set(profiles.flatMap(p => p.output === undefined ? [] : [normalizeOutputPath(p.output)]))];
   const invalid = profiles.some(p => p.output === undefined || normalizeOutputPath(p.output) === null);

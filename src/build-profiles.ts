@@ -1,7 +1,7 @@
 import type { Entry } from './types.ts';
 import { parseCode, stringValue, type Ast } from './syntax.ts';
 
-export type BuildProfile = { script: string; mode: string; output?: string; issue?: string };
+export type BuildProfile = { script: string; mode: string; output?: string; base?: string; issue?: string };
 const unknown = Symbol('unknown');
 type Value = string | boolean | number | null | typeof unknown;
 // Deliberately finite: resolve configuration data, never call project functions/plugins.
@@ -110,18 +110,20 @@ export function buildProfiles(entries: Entry[]): BuildProfile[] {
         if (/\bvite\s+build\b/.test(segment)) profiles.push({script,mode:'?',issue:'コマンドのラッパーまたは条件に未対応です'});
         continue;
       }
-      let mode = 'production', override: string | undefined, invalid = false;
+      let mode = 'production', override: string | undefined, base: string | undefined, invalid = false;
       for (let i = 2; i < tokens.length; i++) {
         const [flag, inline] = tokens[i].split('=');
-        if (['--mode', '-m', '--outDir'].includes(flag)) {
+        if (['--mode', '-m', '--outDir', '--base'].includes(flag)) {
           const v = inline ?? tokens[++i];
           if (!v || /[$`]|^--/.test(v)) { invalid = true; break; }
-          if (flag === '--outDir') override = v; else mode = v;
+          if (flag === '--outDir') override = v;
+          else if (flag === '--base') base = v;
+          else mode = v;
         } else { invalid = true; break; }
       }
       const configured = configText === undefined ? undefined : viteProfile(configText, mode);
       const output = !invalid && configured !== undefined ? override ?? configured : undefined;
-      profiles.push({script,mode,output:output || undefined,issue:output ? undefined : '設定・コマンドに未対応または動的な指定があります'});
+      profiles.push({script,mode,output:output || undefined,base,issue:output ? undefined : '設定・コマンドに未対応または動的な指定があります'});
     }
   }
   for (const [name, cmd] of Object.entries(scripts)) if (typeof cmd === 'string') command(cmd, name);
