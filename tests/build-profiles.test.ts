@@ -14,6 +14,15 @@ test('all declared build modes yield separate output candidates',()=>{
   assert.deepEqual(a.profiles?.map(p=>[p.mode,p.output]),[['production','personal'],['public','release']]);
   assert.match(a.warnings.join(''),/build:public/);
 });
+test('shared output folders disclose that the measured files have unknown build provenance',()=>{
+  const entries=[f('package.json',JSON.stringify({scripts:{build:'vite build','build:pages':'vite build --mode pages'},devDependencies:{vite:'7'}})),f('index.html','<h1>site</h1>'),f('dist/index.html','<h1>built</h1>')];
+  const selection=detectOutput(entries);
+  assert.equal(selection.path,'dist/');
+  assert.match(selection.warnings.join(''),/どのビルドで作成されたか/);
+  const analysis=analyze(entries);
+  assert.equal(analysis.runtime,'static');
+  assert.equal(analysis.assets?.count,1);
+});
 test('hosting output reconciles matching modes, without merging artifacts',()=>{
   const a=detectOutput([...files(),f('wrangler.jsonc','{"assets":{"directory":"personal"}}')]);
   assert.equal(a.path,'personal/');assert.match(a.reason,/production/);assert.match(a.warnings.join(''),/release/);

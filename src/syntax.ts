@@ -13,8 +13,8 @@ class TSParser extends TSBase {
     return (TSBase.prototype as any).checkLValSimple.call(this, node, ...args);
   }
 }
-/** Preserve offsets while removing a type-only clause unsupported by the TS parser. */
-function withoutObjectSatisfies(code: string): string {
+/** Preserve offsets while removing a simple type-only clause unsupported by the TS parser. */
+function withoutSimpleSatisfies(code: string): string {
   try {
     const tokens: {start:number;end:number;type:{label:string};value?:unknown}[] = [
       ...Parser.tokenizer(code, {
@@ -27,7 +27,7 @@ function withoutObjectSatisfies(code: string): string {
       if (
         tokens[i].type.label !== "name" ||
         tokens[i].value !== "satisfies" ||
-        tokens[i - 1].type.label !== "}" ||
+        !["}", "]", ")", "name"].includes(tokens[i - 1].type.label) ||
         tokens[i + 1].type.label !== "name"
       )
         continue;
@@ -69,7 +69,7 @@ function withoutObjectSatisfies(code: string): string {
 export function parseCode(code: string): Ast | null {
   const original = code;
   for (const compatibility of [false, true]) {
-    code = compatibility ? withoutObjectSatisfies(original) : original;
+    code = compatibility ? withoutSimpleSatisfies(original) : original;
     if (compatibility && code === original) continue;
     for (const parser of [Parser, TSParser]) {
       for (const sourceType of ["module", "script"] as const) {

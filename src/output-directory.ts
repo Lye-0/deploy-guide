@@ -58,7 +58,12 @@ function detect(entries: Entry[], manual: string, files: Entry[], profiles: Buil
   const variants = [...new Set(profiles.flatMap(p => p.output === undefined ? [] : [normalizeOutputPath(p.output)]))];
   const invalid = profiles.some(p => p.output === undefined || normalizeOutputPath(p.output) === null);
   const describe = (p: BuildProfile) => p.script + ' (mode=' + p.mode + ') → ' + (p.output ?? '未確認' + (p.issue ? '（' + p.issue + '）' : ''));
-  if (profiles.length > 1) warnings.push('ビルドごとの出力：' + profiles.map(describe).join(' ／ ') + '。配信する内容に合うフォルダを選んでください。');
+  if (profiles.length > 1) {
+    warnings.push('ビルドごとの出力：' + profiles.map(describe).join(' ／ ') + '。');
+    if (variants.length === 1 && !invalid)
+      warnings.push('複数のビルドが同じ公開フォルダを使用します。容量は現在あるファイルの集計値です。どのビルドで作成されたか、フォルダだけでは確認できません。');
+    else warnings.push('配信する内容に合うフォルダを選んでください。');
+  }
   if (hosting.length === 1 && variants.includes(hosting[0]) && !unresolved) {
     const matched = profiles.filter(p => p.output !== undefined && normalizeOutputPath(p.output) === hosting[0]);
     const reason = found[0].source + 'と ' + matched.map(describe).join(' ／ ') + ' の一致から検出';

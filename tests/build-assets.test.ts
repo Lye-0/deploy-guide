@@ -17,6 +17,18 @@ test('nested object satisfies leaves API calls visible', () => {
   const ast = parseCode('navigate({ state: { value: fetch("/api") } satisfies RouteStamp });');
   assert.ok(ast); let calls = 0; walk(ast,n => {if(n.type==='CallExpression' && n.callee.name==='fetch') calls++;}); assert.equal(calls,1);
 });
+test('array satisfies preserves the runtime expression and its calls', () => {
+  const ast = parseCode('export const DATA = new Map(([{ id: fetch("/api/value") }] satisfies Item[]).map(x => [x.id, x]));');
+  assert.ok(ast);
+  let requests = 0;
+  walk(ast, node => { if (node.type === 'CallExpression' && node.callee?.name === 'fetch') requests++; });
+  assert.equal(requests, 1);
+});
+test('unsupported type assertions do not silently become static proof', () => {
+  const a = analyze([...base, f('src/main.ts', 'import {DATA} from "./data"; console.log(DATA)'), f('src/data.ts', 'export const DATA = [{ id: 1 }] satisfies { id: number }[];')]);
+  assert.equal(a.runtime, 'unknown');
+  assert.ok(a.warnings.some(w => w.includes('構文に未対応')));
+});
 const wasm = [f('src/assets.ts', 'import wasm from "parser/runtime.wasm?url"; export const runtimeUrl = wasm;'), f('src/main.ts', 'import {runtimeUrl} from "./assets"; fetch(runtimeUrl);')];
 test('immutable Vite package URL imports remain static through exports', () => {
   const a = analyze([...base,...wasm]); assert.equal(a.runtime,'static'); assert.equal(a.externalApi,false);
