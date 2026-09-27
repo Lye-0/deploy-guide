@@ -7,7 +7,11 @@ export const SOURCES = [
   { name: 'Cloudflare：Workersの上限', url: 'https://developers.cloudflare.com/workers/platform/limits/', note: '無料枠は20,000アセット、1ファイル25 MiB。動的処理は100,000リクエスト/日、CPU 10 ms/回。' },
   { name: 'Cloudflare：Next.jsの対応', url: 'https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/', note: 'vinext（ベータ）やOpenNext等の経路について、バージョン・機能の互換性確認が必要。' },
   { name: 'Next.js：静的エクスポート', url: 'https://nextjs.org/docs/app/guides/static-exports', note: 'output: exportでも、機能によって静的出力できない場合があります。' },
-  { name: 'Vercel：Next.jsの統合', url: 'https://vercel.com/docs/frameworks/full-stack/nextjs', note: 'Next.js向けのデプロイ統合とPRプレビュー。' }
+  { name: 'Vercel：Next.jsの統合', url: 'https://vercel.com/docs/frameworks/full-stack/nextjs', note: 'Next.js向けのデプロイ統合とPRプレビュー。' },
+  { name: 'Cloudflare：WorkerとAccess', url: 'https://developers.cloudflare.com/workers/configuration/cloudflare-access/', note: 'AccessでWorkerの本番とプレビュー、静的アセットへのアクセスを制限できます。' },
+  { name: 'Cloudflare：Zero Trustの料金', url: 'https://www.cloudflare.com/plans/', note: 'Zero Trust Freeは50ユーザーまで。' },
+  { name: 'Vercel：Deployment Protection', url: 'https://vercel.com/docs/deployment-protection/methods-to-protect-deployments/vercel-authentication', note: 'Vercel Authenticationは全プランで利用可能。本番を含む全URLの保護と閲覧者の条件を確認。' },
+  { name: 'GitHub Pages：非公開サイトの条件', url: 'https://docs.github.com/en/enterprise-cloud@latest/pages/getting-started-with-github-pages/changing-the-visibility-of-your-github-pages-site', note: '非公開のPagesサイトにはGitHub Enterprise Cloudを使う組織などの条件があります。' }
 ];
 export function recommend(a: Analysis, p: Preferences): Candidate[] {
   const runtime = p.runtime === 'auto' ? a.runtime : p.runtime;
@@ -65,10 +69,20 @@ export function recommend(a: Analysis, p: Preferences): Candidate[] {
   if (a.externalApi) for (const c of [gh, vc, cf]) c.cautions.push('HTTP通信を検出しました。ブラウザから呼ぶ場合はCORSと公開可能な認証方式を確認してください。');
   if (p.runtime === 'static' && a.runtime === 'server') for (const c of [gh, vc, cf]) c.cautions.unshift('回答に従い静的配信として評価しています。検出したサーバー処理が別の公開先にあるか確認してください。');
   if (p.access === 'restricted') {
-    for (const c of [gh, vc, cf]) {
-      c.conditional = true;
-      c.cautions.unshift('閲覧制限が必要です。HTML・画像・既定URLを含むアクセス制御が公開先で有効か、このフォルダからは検証できません。');
-    }
+    cf.score += 45;
+    cf.plan += ' + Access';
+    cf.condition = 'Cloudflare Accessで許可した閲覧者だけに配信する場合に。';
+    cf.reasons.unshift('Cloudflare AccessでWorkerの本番・プレビューと静的アセットを保護できます。');
+    cf.cautions.unshift('公開前にAccessのAllowポリシーを設定し、本番・プレビュー・画像を含む全URLを未認証では開けないことを確認してください。Zero Trust Freeは50ユーザーまでです。');
+    vc.score += 18;
+    vc.plan += ' + Vercel Authentication';
+    vc.condition = 'Vercelアカウントで閲覧者を管理する場合に。';
+    vc.reasons.unshift('Vercel Authenticationで本番を含む全デプロイへのアクセスを制限できます。');
+    vc.cautions.unshift('公開前にDeployment Protectionを「All Deployments」に設定してください。閲覧者にはアクセスを許可されたVercelアカウントが必要で、Hobbyの外部閲覧者は1人までです。');
+    gh.conditional = true;
+    gh.condition = 'GitHub Enterprise Cloudの組織で非公開Pagesを使える場合に。';
+    gh.cautions.unshift('通常のGitHub Pagesは公開サイトです。非公開PagesにはGitHub Enterprise Cloudの組織などの条件があります。非公開リポジトリだけでは閲覧制限になりません。');
+    if (p.budget === 'free') gh.blocked = true;
   } else if (p.access === 'unknown') {
     for (const c of [gh, vc, cf]) c.cautions.unshift('閲覧範囲が未定です。この提案は配信構成の比較です。閲覧制限が必要なら条件を変更してください。');
   }

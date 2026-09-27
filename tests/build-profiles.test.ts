@@ -56,12 +56,36 @@ test('manual edition choice retains runtime and measures only that edition',()=>
   const a=analyze([...files(),f('index.html','<h1>Hello</h1>')],'','gallery',[],'release/');
   assert.equal(a.runtime,'static');assert.equal(a.assets?.path,'release/');assert.equal(a.assets?.count,1);assert.equal(a.buildProfiles?.length,2);
 });
-test('restricted readership requires verified access control for every provider',()=>{
+test('restricted readership recommends a provider that can add access control',()=>{
   const a=analyze([f('index.html','<h1>Hello</h1>')]);
   const p={purpose:'personal',budget:'free',priority:'simple',traffic:'unknown',runtime:'auto'} as const;
   const restricted=recommend(a,{...p,access:'restricted'});
-  assert.ok(restricted.every(c=>c.conditional));assert.ok(restricted.every(c=>c.cautions.some(t=>t.includes('アクセス制御'))));
+  assert.equal(restricted[0].id,'cloudflare');
+  assert.equal(restricted[0].conditional,undefined);
+  assert.match(restricted[0].plan,/Access/);
+  assert.ok(restricted[0].reasons.some(t=>t.includes('本番・プレビュー')));
+  assert.ok(restricted[0].cautions.some(t=>t.includes('公開前')));
+  assert.equal(restricted.find(c=>c.id==='github')?.blocked,true);
+  assert.ok(restricted.find(c=>c.id==='vercel')?.reasons.some(t=>t.includes('Authentication')));
   assert.ok(recommend(a,{...p,access:'public'}).some(c=>!c.conditional&&!c.blocked));
+});
+test('existing access settings are not a prerequisite for a restricted recommendation',()=>{
+  const a=analyze([f('package.json','{"private":true,"devDependencies":{"vite":"7"},"scripts":{"build":"vite build"}}'),f('index.html','<h1>gallery</h1>'),f('dist/index.html','<h1>built</h1>')]);
+  const candidates=recommend(a,{purpose:'unknown',budget:'free',priority:'simple',traffic:'unknown',runtime:'auto',access:'restricted'});
+  assert.equal(a.runtime,'static');
+  assert.equal(candidates.find(c=>!c.blocked&&!c.conditional)?.id,'cloudflare');
+});
+test('asset limits can exclude Cloudflare while Vercel stays a protected option',()=>{
+  const a=analyze([f('index.html','<h1>Hello</h1>')]);
+  a.assets!.largest=25*1024*1024+1;
+  const candidates=recommend(a,{purpose:'personal',budget:'free',priority:'simple',traffic:'unknown',runtime:'auto',access:'restricted'});
+  assert.equal(candidates.find(c=>c.id==='cloudflare')?.blocked,true);
+  assert.equal(candidates.find(c=>!c.blocked&&!c.conditional)?.id,'vercel');
+});
+test('unknown runtime remains unconfirmed even when access is required',()=>{
+  const a=analyze([f('notes.txt','hello')]);
+  const candidates=recommend(a,{purpose:'personal',budget:'free',priority:'simple',traffic:'unknown',runtime:'auto',access:'restricted'});
+  assert.ok(candidates.every(c=>c.blocked||c.conditional));
 });
 test('package private flag does not imply viewer authentication',()=>{
   const a=analyze([f('package.json','{"private":true}'),f('index.html','<h1>Hello</h1>')]);

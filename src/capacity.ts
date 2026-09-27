@@ -62,6 +62,6 @@ export function detailedReasons(a: Analysis, c: Candidate, p: Preferences): { ti
   const priority = { simple: '手軽さ', growth: '拡張性', preview: 'プレビュー' }[p.priority];
   return [
     { title: runtime === 'static' ? '静的配信の構成として評価しています' : runtime === 'server' ? 'サーバー処理を配置できる候補です' : '実行方式の確認が必要です', body: intro + body },
-    { title: '選んだ運用条件との相性', body: `「${purpose}」「${p.budget === 'free' ? '無料で運用' : '有料も検討'}」「${priority}」で比較しています。${c.reasons.slice(0, 3).join(' ')}` }
+    { title: '選んだ運用条件との相性', body: `「${purpose}」「${p.access === 'restricted' ? '閲覧制限あり' : p.access === 'public' ? '一般公開' : '閲覧範囲は未定'}」「${p.budget === 'free' ? '無料で運用' : '有料も検討'}」「${priority}」で比較しています。${c.reasons.slice(0, 3).join(' ')}` }
   ];
 }
