@@ -20,8 +20,6 @@ jobs:
         with:
           node-version: '24.22.1'
           cache: npm
-      - name: Use npm 11.21.1
-        run: npm install --global npm@11.21.1
       - run: npm ci
       - run: npm test
       - run: npm run build
