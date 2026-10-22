@@ -7,19 +7,3 @@
 ## DEPLOYMENT
 
 https://lye-0.github.io/deploy-guide/
-
-## 開発・検証
-
-Node.js 24.22.1とnpm 11.21.1を使用します。miseでプロジェクト用の版を固定しています。
-
-```powershell
-mise trust
-mise install
-mise exec -- npm ci
-mise exec -- npm test
-mise exec -- npm run build
-mise exec -- npm run check:size
-mise exec -- npm audit
-```
-
-GitHub Actionsでも同じNode.js・npmを使用します。
