@@ -1,0 +1,4 @@
+# Keep npm before node so the pinned npm takes precedence over the bundled copy.
+[tools]
+"npm:npm" = "11.21.1"
+node = "24.22.1"
